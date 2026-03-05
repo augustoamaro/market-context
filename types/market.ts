@@ -45,10 +45,19 @@ export interface DecisionStep {
   details: string;
 }
 
+export interface ScoreBreakdown {
+  trend: number;    // 0–30
+  regime: number;   // 0–20
+  position: number; // 0–20
+  momentum: number; // 0–15
+  volume: number;   // 0–15
+}
+
 export interface Decision {
   signal: Signal;
   label: ConvictionLabel;
   confidenceScore: number;
+  scoreBreakdown: ScoreBreakdown;
   reasons: string[];
   steps: DecisionStep[];
 }

@@ -83,14 +83,68 @@ describe("computeDecision()", () => {
     expect(posStep?.status).toBe("bad");
   });
 
-  it("always returns 4 steps", () => {
+  it("always returns 5 steps (trend, regime, momentum, position, volume)", () => {
     const result = computeDecision(makeCtx(), makeRows());
-    expect(result.steps).toHaveLength(4);
+    expect(result.steps).toHaveLength(5);
+    expect(result.steps.map((s) => s.id)).toEqual(["trend", "regime", "momentum", "position", "volume"]);
   });
 
   it("confidenceScore is capped at 100", () => {
     const result = computeDecision(makeCtx(), makeRows());
     expect(result.confidenceScore).toBeLessThanOrEqual(100);
+  });
+
+  it("scoreBreakdown sums to confidenceScore", () => {
+    const result = computeDecision(makeCtx(), makeRows());
+    const { trend, regime, position, momentum, volume } = result.scoreBreakdown;
+    expect(trend + regime + position + momentum + volume).toBe(result.confidenceScore);
+  });
+
+  it("scoreBreakdown has correct max dimensions", () => {
+    const result = computeDecision(makeCtx(), makeRows());
+    const b = result.scoreBreakdown;
+    expect(b.trend).toBeLessThanOrEqual(30);
+    expect(b.regime).toBeLessThanOrEqual(20);
+    expect(b.position).toBeLessThanOrEqual(20);
+    expect(b.momentum).toBeLessThanOrEqual(15);
+    expect(b.volume).toBeLessThanOrEqual(15);
+  });
+
+  it("volume >= 130% → volume score 15 and step ok", () => {
+    const ctx = makeCtx({ volumeRatioPct: 150 });
+    const result = computeDecision(ctx, makeRows());
+    expect(result.scoreBreakdown.volume).toBe(15);
+    const volStep = result.steps.find((s) => s.id === "volume");
+    expect(volStep?.status).toBe("ok");
+  });
+
+  it("volume 100–129% → volume score 10", () => {
+    const ctx = makeCtx({ volumeRatioPct: 110 });
+    const result = computeDecision(ctx, makeRows());
+    expect(result.scoreBreakdown.volume).toBe(10);
+  });
+
+  it("volume 70–99% → volume score 5 and step warn", () => {
+    const ctx = makeCtx({ volumeRatioPct: 80 });
+    const result = computeDecision(ctx, makeRows());
+    expect(result.scoreBreakdown.volume).toBe(5);
+    const volStep = result.steps.find((s) => s.id === "volume");
+    expect(volStep?.status).toBe("warn");
+  });
+
+  it("volume < 70% → volume score 0 and step bad", () => {
+    const ctx = makeCtx({ volumeRatioPct: 50 });
+    const result = computeDecision(ctx, makeRows());
+    expect(result.scoreBreakdown.volume).toBe(0);
+    const volStep = result.steps.find((s) => s.id === "volume");
+    expect(volStep?.status).toBe("bad");
+  });
+
+  it("NO TRADE path returns zero scoreBreakdown", () => {
+    const ctx = makeCtx({ marketState: "equilibrium", pricePositionPct: 50 });
+    const result = computeDecision(ctx, makeRows());
+    const b = result.scoreBreakdown;
+    expect(b.trend + b.regime + b.position + b.momentum + b.volume).toBe(0);
   });
 });
 

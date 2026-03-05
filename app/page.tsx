@@ -11,6 +11,7 @@ import TrendMonitorCard from "./components/TrendMonitorCard";
 import DecisionLogicCard from "./components/DecisionLogicCard";
 import CurrentSignalCard from "./components/CurrentSignalCard";
 import CandleChart from "./components/CandleChart";
+import Sidebar from "./components/Sidebar";
 
 const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const REFRESH_INTERVAL = 60_000;
@@ -101,55 +102,61 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <Header
-        symbol={symbol}
-        timeframe={timeframe}
-        price={activeCtx?.price ?? 0}
-        priceChangePct={activeCtx?.priceChangePct ?? 0}
-        onSymbolChange={setSymbol}
-        onTimeframeChange={setTimeframe}
-      />
+    <div className="flex h-screen w-full overflow-hidden bg-bg">
+      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} />
 
-      <main className="mx-auto max-w-[1200px] px-6 py-6 pb-20">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 gap-6 lg:grid-cols-12"
-        >
-          {/* Left column — 8/12 */}
-          <div className="space-y-6 lg:col-span-8">
-            <motion.div variants={itemVariants}>
-              <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <TrendMonitorCard
-                rows={allRows}
-                loading={loading}
-                error={error}
-                activeTimeframe={timeframe}
-              />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <CandleChart symbol={symbol} timeframe={timeframe} />
+      <div className="flex flex-1 flex-col overflow-hidden relative">
+        <Header
+          symbol={symbol}
+          timeframe={timeframe}
+          price={activeCtx?.price ?? 0}
+          priceChangePct={activeCtx?.priceChangePct ?? 0}
+          onSymbolChange={setSymbol}
+          onTimeframeChange={setTimeframe}
+        />
+
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="mx-auto max-w-[1200px]">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-6 lg:grid-cols-12"
+            >
+              {/* Left column — 8/12 */}
+              <div className="space-y-6 lg:col-span-8">
+                <motion.div variants={itemVariants}>
+                  <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <TrendMonitorCard
+                    rows={allRows}
+                    loading={loading}
+                    error={error}
+                    activeTimeframe={timeframe}
+                  />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <CandleChart symbol={symbol} timeframe={timeframe} />
+                </motion.div>
+              </div>
+
+              {/* Right sidebar — 4/12, self-start so cards don't stretch */}
+              <div className="space-y-6 lg:col-span-4 lg:self-start">
+                <motion.div variants={itemVariants}>
+                  <DecisionLogicCard decision={decision} loading={loading} />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <CurrentSignalCard decision={decision} loading={loading} />
+                </motion.div>
+              </div>
             </motion.div>
           </div>
-
-          {/* Right sidebar — 4/12, self-start so cards don't stretch */}
-          <div className="space-y-6 lg:col-span-4 lg:self-start">
-            <motion.div variants={itemVariants}>
-              <DecisionLogicCard decision={decision} loading={loading} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <CurrentSignalCard decision={decision} loading={loading} />
-            </motion.div>
-          </div>
-        </motion.div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

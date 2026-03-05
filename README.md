@@ -9,7 +9,7 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen?logo=vitest)
+![Tests](https://img.shields.io/badge/tests-45%20passing-brightgreen?logo=vitest)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Preview
@@ -53,7 +53,7 @@ Open: `http://localhost:3000`
 | `pnpm dev` | Start dev server at `localhost:3000` |
 | `pnpm build` | Production build |
 | `pnpm start` | Start production server |
-| `pnpm test` | Run all 38 unit tests (Vitest) |
+| `pnpm test` | Run all 45 unit tests (Vitest) |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm test:coverage` | Run tests with v8 coverage report |
 | `pnpm lint` | Run ESLint |
@@ -69,7 +69,7 @@ Open: `http://localhost:3000`
 | Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
 | Charts | TradingView Lightweight Charts v5 |
 | Animations | Framer Motion |
-| Tests | Vitest (38 tests) |
+| Tests | Vitest (45 tests) |
 
 ---
 
@@ -111,7 +111,7 @@ market-context/
 │   ├── components/
 │   │   ├── CandleChart.tsx           # TradingView candlestick chart (SSR-safe)
 │   │   ├── CurrentSignalCard.tsx     # Final signal (UP/DOWN/WAIT) + conviction score
-│   │   ├── DecisionLogicCard.tsx     # 4-step decision timeline with status icons
+│   │   ├── DecisionLogicCard.tsx     # 5-step decision timeline + score breakdown bars
 │   │   ├── Header.tsx                # Symbol selector, timeframe tabs, price ticker
 │   │   ├── RangePositionCard.tsx     # Price position within 20-candle range
 │   │   ├── RegimeHeroCard.tsx        # Market regime + RSI/Volume/MACD stats
@@ -125,7 +125,7 @@ market-context/
 │
 ├── lib/
 │   ├── config.ts                     # Symbols, timeframes, thresholds, env vars
-│   ├── decision.ts                   # Decision engine: 4 steps → signal + conviction
+│   ├── decision.ts                   # Decision engine: 5 weighted steps → signal + conviction score
 │   ├── format.ts                     # Price, percent, volume formatters
 │   ├── rateLimit.ts                  # Sliding-window rate limiter (per IP)
 │   ├── binance/
@@ -337,11 +337,11 @@ The RSI and Volume columns per timeframe let you spot divergences — e.g., pric
 
 ---
 
-### 4. Decision Logic — the 4-step checklist
+### 4. Decision Logic — the 5-step checklist + score breakdown
 
 **Where:** top-right card.
 
-Every trade setup passes through 4 filters. Each returns a status:
+Every trade setup passes through 5 filters. Each returns a status and contributes a weighted score:
 
 | Icon | Status | Meaning |
 |------|--------|---------|
@@ -349,14 +349,19 @@ Every trade setup passes through 4 filters. Each returns a status:
 | ⚠ | Warn (yellow) | Marginal — proceed with reduced size |
 | ✗ | Bad (red) | Filter failed — significant headwind |
 
-**The 4 filters:**
+**The 5 filters and their weight in the 0–100 score:**
 
-1. **Trend Alignment** — are 3+ timeframes aligned with the selected trend? Bad if sideways, warn if mixed, OK if 3–4 aligned.
-2. **Regime** — is the market in Expansion? Warn if Equilibrium.
-3. **Momentum** — is RSI in a healthy zone (45–65)? Warn if overbought (>75) or oversold (<25).
-4. **Position** — is price away from mid-range? Bad if 40–60%, warn if extreme (>90% or <10%).
+| # | Filter | Max pts | Scoring |
+|---|--------|---------|---------|
+| 1 | **Trend Alignment** | 30 | 4/4 TFs aligned = 30, 3/4 = 22, 2/4 = 12, 1/4 = 5, sideways = 0 |
+| 2 | **Regime** | 20 | Expansion = 20, Equilibrium = 10 |
+| 3 | **Momentum** | 15 | RSI 45–65 = 15, 35–45 or 65–75 = 10, 25–35 or 75–85 = 5, extreme = 0 |
+| 4 | **Position** | 20 | Range extreme (< 25% or > 75%) = 20, mid-approach = 12, mid-range 40–60% = 0 |
+| 5 | **Volume** | 15 | ≥ 130% avg = 15, ≥ 100% = 10, ≥ 70% = 5, < 70% = 0 |
 
-> **Rule #3:** A HIGH CONVICTION signal requires at least 3 OK steps and 0 bad steps. Anything less is LOW CONVICTION — smaller size or no trade.
+The **Score Breakdown** bars are displayed at the bottom of the card, showing per-dimension contribution and total out of 100.
+
+> **Rule #3:** A HIGH CONVICTION signal requires a total score ≥ 65. Below that = LOW CONVICTION — smaller size or no trade.
 
 ---
 
@@ -373,13 +378,14 @@ Every trade setup passes through 4 filters. Each returns a status:
 | **WAIT** NO TRADE | Auto-blocked | Equilibrium + price in mid-range (40–60%) |
 | **WAIT** LOW CONVICTION | Mixed signals | No clear trend or regime alignment |
 
-The **Confidence Score (0–100)** is not a probability — it is a relative strength indicator. A score of 85 means all filters aligned cleanly. A score of 45 means the setup exists but has meaningful headwinds.
+The **Confidence Score (0–100)** is not a probability — it is a relative strength indicator. It is computed as the sum of five weighted dimensions (Trend 30 + Regime 20 + Position 20 + Momentum 15 + Volume 15). A score of 85 means all filters aligned cleanly. A score of 45 means the setup exists but has meaningful headwinds.
 
 Reference scale:
-- `0` = **NO TRADE** (auto-blocked)
-- `20` = **WAIT** (mixed or weak structure)
-- `40–60` = **LOW CONVICTION**
-- `75–95` = **HIGH CONVICTION**
+- `0` = **NO TRADE** (auto-blocked: Equilibrium + mid-range)
+- `< 40` = **WAIT / LOW CONVICTION** (multiple headwinds)
+- `40–64` = **LOW CONVICTION** (directional setup with caveats)
+- `≥ 65` = **HIGH CONVICTION** (most filters aligned)
+- `100` = perfect setup (all five dimensions maxed)
 
 ---
 
@@ -480,7 +486,7 @@ Minor differences are expected due to candle history depth and EMA seed. RSI sho
 
 - **Cache:** each symbol/timeframe pair is cached in-memory for 60s. The UI auto-refreshes on the same interval. Timeframe switching is instant (served from cache, no new request).
 - **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
-- **Tests:** 38 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine.
+- **Tests:** 45 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine (including per-dimension volume scoring).
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
 
 ---

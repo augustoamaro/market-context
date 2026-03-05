@@ -59,6 +59,37 @@ export default function DecisionLogicCard({ decision, loading }: Props) {
           );
         })}
       </div>
+
+      {/* Score Breakdown */}
+      <div className="mt-6 pt-5 border-t border-white/5">
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted mb-4">Score Breakdown</h3>
+        {(
+          [
+            { label: "Trend",    value: decision.scoreBreakdown.trend,    max: 30 },
+            { label: "Regime",   value: decision.scoreBreakdown.regime,   max: 20 },
+            { label: "Position", value: decision.scoreBreakdown.position, max: 20 },
+            { label: "Momentum", value: decision.scoreBreakdown.momentum, max: 15 },
+            { label: "Volume",   value: decision.scoreBreakdown.volume,   max: 15 },
+          ] as const
+        ).map(({ label, value, max }) => (
+          <div key={label} className="flex items-center gap-3 mb-2.5">
+            <span className="text-[11px] text-text-muted/60 w-16 shrink-0">{label}</span>
+            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-text-muted/40 rounded-full transition-all duration-300"
+                style={{ width: `${(value / max) * 100}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-mono text-text-muted/60 w-10 text-right shrink-0">
+              {value}/{max}
+            </span>
+          </div>
+        ))}
+        <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
+          <span className="text-[11px] text-text-muted/60">Total</span>
+          <span className="text-[13px] font-mono text-text">{decision.confidenceScore}/100</span>
+        </div>
+      </div>
     </div>
   );
 }
