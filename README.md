@@ -104,7 +104,8 @@ market-context/
 ├── app/
 │   ├── api/
 │   │   ├── candles/route.ts          # GET /api/candles  — raw OHLCV for chart
-│   │   ├── context/route.ts          # GET /api/context  — single or batch symbols
+│   │   ├── context/route.ts          # GET /api/context  — single or chunked batch (50/chunk)
+│   │   ├── ticker/route.ts           # GET /api/ticker   — lightweight 24h price + change
 │   │   ├── symbols/route.ts          # GET /api/symbols
 │   │   └── timeframes/route.ts       # GET /api/timeframes
 │   │
@@ -112,9 +113,10 @@ market-context/
 │   │   ├── CandleChart.tsx           # TradingView candlestick chart (SSR-safe)
 │   │   ├── CurrentSignalCard.tsx     # Final signal (UP/DOWN/WAIT) + conviction score
 │   │   ├── DecisionLogicCard.tsx     # 5-step decision timeline + score breakdown bars
-│   │   ├── Header.tsx                # Symbol selector, timeframe tabs, price ticker
+│   │   ├── Header.tsx                # Timeframe tabs + price ticker
 │   │   ├── RangePositionCard.tsx     # Price position within 20-candle range
 │   │   ├── RegimeHeroCard.tsx        # Market regime + RSI/Volume/MACD stats
+│   │   ├── Sidebar.tsx               # Watchlist (favorites) + best-setup star + search
 │   │   ├── Skeleton.tsx              # Loading skeleton
 │   │   └── TrendMonitorCard.tsx      # Multi-timeframe EMA alignment table
 │   │
@@ -190,7 +192,18 @@ market-context/
 
 ### `GET /api/context?symbols=BTCUSDT,ETHUSDT&timeframe=4h`
 
-Returns an array of `MarketContext`. Individual failures are skipped — only successfully loaded symbols are returned.
+Returns an array of `MarketContext`. Individual failures are skipped — only successfully loaded symbols are returned. Processes in chunks of 50 server-side to avoid overwhelming Binance on cold start.
+
+### `GET /api/ticker?symbols=BTCUSDT,ETHUSDT`
+
+Lightweight 24h price ticker — does **not** fetch candles. Used by the watchlist sidebar for live prices.
+
+```json
+[
+  { "symbol": "BTCUSDT", "lastPrice": "71396.10", "priceChange": "-1270.50", "priceChangePercent": "-1.75" },
+  { "symbol": "ETHUSDT", "lastPrice": "2080.92",  "priceChange":   "-46.30", "priceChangePercent": "-2.18" }
+]
+```
 
 ### `GET /api/candles?symbol=BTCUSDT&timeframe=4h`
 
@@ -281,6 +294,26 @@ Ratio ≥ 1.3 signals above-average participation (expansion pressure).
 ## How to Read the Dashboard (Trader's Guide)
 
 This section explains how to interpret each panel and combine them into a trading decision.
+
+---
+
+### 0. Watchlist Sidebar — symbol selection and best-setup signal
+
+**Where:** left panel.
+
+The sidebar shows your personal watchlist with live prices and 24h change, updated every 30s.
+
+- **⌘K** (or the search button) opens a modal to search across all configured symbols and add them to the watchlist
+- Click any symbol to switch the analysis to it
+- Hover a symbol to reveal the **×** button and remove it from the watchlist
+- Favorites are saved in `localStorage` and persist across sessions
+
+**The star ★** appears on the symbol with the best setup at the current timeframe:
+- Green ★ → best **long** setup (highest score with UP signal)
+- Red ★ → best **short** setup (highest score with DOWN signal)
+- Only shows when score ≥ 60 — if no symbol qualifies, no star is displayed
+
+The star updates every 60s. After the first scan warms the cache, subsequent scans are fast.
 
 ---
 
@@ -430,9 +463,11 @@ Reference scale:
 Edit `lib/config.ts`:
 
 ```ts
-export const SYMBOLS    = ["BTCUSDT", "ETHUSDT", ..., "ENAUSDT"]; // 50 symbols, see lib/config.ts
+export const SYMBOLS    = ["BTCUSDT", "ETHUSDT", ..., "ENAUSDT"]; // 50 symbols by default, supports up to ~500
 export const TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 ```
+
+Symbols added here become searchable in the sidebar (⌘K). The `/api/context` batch endpoint processes them in chunks of 50, so cold-start load is safe regardless of list size. After 60s the in-memory cache covers all symbols and the best-setup scan becomes instant.
 
 ### Add a new indicator
 
@@ -495,6 +530,8 @@ Minor differences are expected due to candle history depth and EMA seed. RSI sho
 
 - **Cache:** each symbol/timeframe pair is cached in-memory for 60s. The UI auto-refreshes on the same interval. Timeframe switching is instant (served from cache, no new request).
 - **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
+- **Batch chunking:** `/api/context` batch mode processes up to 500 symbols in chunks of 50 to avoid overwhelming Binance on cold start. After the 60s cache warms up, subsequent scans are served entirely from memory.
+- **Watchlist:** favorites are persisted in `localStorage`. Ticker prices refresh every 30s via `/api/ticker` (lightweight — no candles fetched). Best-setup star scans all configured symbols every 60s in 50-symbol chunks.
 - **Tests:** 45 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine (including per-dimension volume scoring).
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
 
