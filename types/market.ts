@@ -21,6 +21,9 @@ export interface MarketContext {
   ema200: number;
   rsi14: number;
   volumeRatioPct: number;
+  macdLine: number;
+  macdSignal: number;
+  macdHistogram: number;
   updatedAt: string;
 }
 

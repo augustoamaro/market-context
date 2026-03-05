@@ -10,8 +10,7 @@ import RangePositionCard from "./components/RangePositionCard";
 import TrendMonitorCard from "./components/TrendMonitorCard";
 import DecisionLogicCard from "./components/DecisionLogicCard";
 import CurrentSignalCard from "./components/CurrentSignalCard";
-import ActionsCard from "./components/ActionsCard";
-import AccountCard from "./components/AccountCard";
+import CandleChart from "./components/CandleChart";
 
 const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const REFRESH_INTERVAL = 60_000;
@@ -135,6 +134,9 @@ export default function DashboardPage() {
                 activeTimeframe={timeframe}
               />
             </motion.div>
+            <motion.div variants={itemVariants}>
+              <CandleChart symbol={symbol} timeframe={timeframe} />
+            </motion.div>
           </div>
 
           {/* Right sidebar — 4/12 */}
@@ -144,12 +146,6 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div variants={itemVariants}>
               <CurrentSignalCard decision={decision} loading={loading} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <ActionsCard ctx={activeCtx} loading={loading} onRefresh={load} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <AccountCard />
             </motion.div>
           </div>
         </motion.div>

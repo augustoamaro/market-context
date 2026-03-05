@@ -87,8 +87,6 @@ market-context/
 │   │       └── route.ts              # GET /api/timeframes
 │   │
 │   ├── components/
-│   │   ├── AccountCard.tsx           # saldos USDT/BTC/ETH/SOL/BNB da conta
-│   │   ├── ActionsCard.tsx           # refresh, copiar resumo, abrir TradingView
 │   │   ├── CurrentSignalCard.tsx     # sinal atual (UP/DOWN/WAIT) + conviction
 │   │   ├── DecisionLogicCard.tsx     # timeline com os 4 steps da decisao
 │   │   ├── Header.tsx                # symbol select, timeframe tabs, price ticker

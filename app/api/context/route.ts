@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildMarketContext } from "@/lib/services/marketContext";
 import { SYMBOLS, TIMEFRAMES } from "@/lib/config";
+import { isRateLimited } from "@/lib/rateLimit";
 
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { searchParams } = req.nextUrl;
   const timeframe = searchParams.get("timeframe");
 

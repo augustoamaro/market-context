@@ -20,15 +20,15 @@
 
 ## Features Faltando
 
-- [ ] **Testes** — zero cobertura. Adicionar vitest com testes unitarios para: `lib/indicators/ema.ts`, `lib/indicators/rsi.ts`, `lib/indicators/marketState.ts`, `lib/decision.ts`. Casos basicos: EMA seed correto, RSI Wilder, classificacao expansion/equilibrium, logica de sinal UP/DOWN/WAIT.
+- [x] **Testes** — vitest configurado (`vitest.config.ts`); 38 testes passando em 5 arquivos: `ema`, `rsi`, `macd`, `marketState`, `decision`. Scripts: `pnpm test`, `pnpm test:watch`, `pnpm test:coverage`.
 
-- [ ] **Error Boundary** — nenhum `ErrorBoundary` React na arvore. Se um componente lancar excecao em runtime, a pagina inteira crasha sem feedback. Criar um boundary em `app/layout.tsx`.
+- [x] **Error Boundary** — `app/error.tsx` criado com o padrao Next.js App Router; captura excecoes em runtime e exibe pagina de erro com botao "Try again".
 
-- [ ] **Rate limiting nas API routes** — sem throttle; um cliente pode disparar centenas de requests por segundo para `/api/context`, consumindo todas as conexoes com a Binance. Adicionar rate limiting por IP (ex: `lru-cache` + contador por janela de 1min).
+- [x] **Rate limiting nas API routes** — `lib/rateLimit.ts` com sliding window em memoria (30 req/min para `/api/context` e `/api/candles`, 10 req/min para `/api/account`). Retorna HTTP 429 ao exceder.
 
-- [ ] **Grafico de precos (TradingView Lightweight Charts)** — o README lista no Tech Stack mas nenhum grafico existe na UI. Considerar adicionar um sparkline ou mini chart de candles no `RegimeHeroCard` ou em card dedicado.
+- [x] **Grafico de precos (TradingView Lightweight Charts)** — `lightweight-charts` instalado; endpoint `GET /api/candles` criado; `CandleChart.tsx` com candlesticks coloridos (verde/vermelho) adicionado na coluna esquerda abaixo da tabela multi-timeframe.
 
-- [ ] **Indicador adicional: MACD ou ADX** — apenas EMA/RSI/Volume no momento. MACD adicionaria confirmacao de divergencia; ADX mediria forca da tendencia sem direcao. Util para filtrar sinais fracos em mercados laterais.
+- [x] **Indicador adicional: MACD** — `lib/indicators/macd.ts` implementado (EMA12-EMA26, signal EMA9, histogram); campos `macdLine`, `macdSignal`, `macdHistogram` adicionados ao `MarketContext`; histogram exibido no `RegimeHeroCard` em verde/vermelho.
 
 ---
 
@@ -56,10 +56,10 @@
 - [x] Classificacao de regime: expansion / equilibrium
 - [x] Motor de decisao: 4 steps + sinal (UP/DOWN/WAIT) + conviction score
 - [x] Multi-timeframe (15m/1h/4h/1d) em paralelo
-- [x] UI: Header, RegimeHeroCard, RangePositionCard, TrendMonitorCard, DecisionLogicCard, CurrentSignalCard, ActionsCard
+- [x] UI: Header, RegimeHeroCard, RangePositionCard, TrendMonitorCard, DecisionLogicCard, CurrentSignalCard, CandleChart
 - [x] API routes: /api/context, /api/symbols, /api/timeframes, /api/account
 - [x] Credenciais Binance integradas: `X-MBX-APIKEY` nas requests publicas (rate limit maior), cliente HMAC-SHA256 para endpoints privados (`lib/binance/signedClient.ts`)
-- [x] Card de saldo da conta (`AccountCard`) — mostra USDT/BTC/ETH/SOL/BNB disponiveis e bloqueados
+- [x] Credenciais Binance usadas para rate limits maiores nas requests publicas
 - [x] Auto-refresh a cada 60s
 - [x] Animacoes Framer Motion (stagger + spring)
 - [x] Design system dark bento-card com Tailwind v4

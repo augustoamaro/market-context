@@ -1,5 +1,5 @@
 import { fetchOHLCV } from "@/lib/binance/client";
-import { ema, rsi, volumeRatio, priceRange, classifyMarketState } from "@/lib/indicators";
+import { ema, rsi, volumeRatio, priceRange, classifyMarketState, macd } from "@/lib/indicators";
 import { MarketContext } from "@/types/market";
 
 function round(v: number, d: number) {
@@ -29,8 +29,9 @@ export async function buildMarketContext(
   const ema200 = ema(closes, 200);
   const rsi14  = rsi(closes, 14);
 
-  const volRatio = volumeRatio(candles);
-  const range    = priceRange(candles);
+  const volRatio  = volumeRatio(candles);
+  const range     = priceRange(candles);
+  const macdResult = macd(closes);
 
   let trend: MarketContext["trend"] = "sideways";
   if (ema20 > ema50 && ema50 > ema200) trend = "up";
@@ -57,6 +58,9 @@ export async function buildMarketContext(
     ema200:           round(ema200, 2),
     rsi14:            round(rsi14, 1),
     volumeRatioPct:   Math.round(volRatio * 100),
+    macdLine:         round(macdResult.macdLine, 2),
+    macdSignal:       round(macdResult.signalLine, 2),
+    macdHistogram:    round(macdResult.histogram, 2),
     updatedAt:        new Date().toISOString(),
   };
 }

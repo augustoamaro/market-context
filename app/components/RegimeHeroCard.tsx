@@ -1,6 +1,6 @@
 import { MarketContext } from "@/types/market";
 import CardSkeleton from "./Skeleton";
-import { ArrowRight, Activity, Percent, BarChart2 } from "lucide-react";
+import { ArrowRight, Activity, Percent, BarChart2, TrendingUp } from "lucide-react";
 
 interface Props {
   ctx: MarketContext | null;
@@ -79,11 +79,11 @@ export default function RegimeHeroCard({ ctx, loading, error }: Props) {
         </div>
 
         <div className="bg-[#111] p-4 flex flex-col justify-between">
-          <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 pt-1">
-            EMA 20
+          <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 flex items-center gap-1.5 pt-1">
+            <TrendingUp className="size-3" /> MACD
           </p>
-          <p className="text-[15px] font-mono font-medium text-text">
-            {ctx.ema20.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+          <p className={`text-[15px] font-mono font-medium ${ctx.macdHistogram > 0 ? "text-success" : ctx.macdHistogram < 0 ? "text-danger" : "text-text-muted"}`}>
+            {ctx.macdHistogram > 0 ? "+" : ""}{ctx.macdHistogram.toFixed(2)}
           </p>
         </div>
       </div>
