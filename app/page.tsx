@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, Variants } from "framer-motion";
-import { MarketContext, MultiTFRow } from "@/types/market";
-import { computeDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
+import { GlobalDecision, MarketContext, MultiTFRow } from "@/types/market";
+import { computeDecision, computeGlobalDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
 import Header from "./components/Header";
 import RegimeHeroCard from "./components/RegimeHeroCard";
 import RangePositionCard from "./components/RangePositionCard";
@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [allContexts, setAllContexts] = useState<MarketContext[]>([]);
   const [activeCtx, setActiveCtx] = useState<MarketContext | null>(null);
   const [allRows, setAllRows] = useState<MultiTFRow[]>([]);
+  const [globalDecision, setGlobalDecision] = useState<GlobalDecision | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -67,8 +68,21 @@ export default function DashboardPage() {
       if (contexts.length === 0) throw new Error("All timeframes failed to load");
 
       setAllContexts(contexts);
-      setAllRows(contexts.map(contextToMultiTFRow));
+      const rows = contexts.map(contextToMultiTFRow);
+      const nextConsensus = rows.length > 0 ? computeMultiTFConsensus(rows) : null;
+      const executionCtx = contexts.find((ctx) => ctx.timeframe === "1h") ?? contexts[0];
+
+      setAllRows(rows);
+      setGlobalDecision(
+        executionCtx && nextConsensus
+          ? computeGlobalDecision(rows, executionCtx, nextConsensus)
+          : null
+      );
     } catch (e) {
+      setAllContexts([]);
+      setAllRows([]);
+      setActiveCtx(null);
+      setGlobalDecision(null);
       setError(e instanceof Error ? e.message : "Failed to load data");
     } finally {
       setLoading(false);
@@ -154,10 +168,14 @@ export default function DashboardPage() {
               {/* Right sidebar — 4/12, self-start so cards don't stretch */}
               <div className="space-y-6 lg:col-span-4 lg:self-start">
                 <motion.div variants={itemVariants}>
-                  <DecisionLogicCard decision={decision} loading={loading} />
+                  <DecisionLogicCard decision={decision} loading={loading} timeframe={timeframe} />
                 </motion.div>
                 <motion.div variants={itemVariants}>
-                  <CurrentSignalCard decision={decision} ctx={activeCtx} loading={loading} />
+                  <CurrentSignalCard
+                    globalDecision={globalDecision}
+                    executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
+                    loading={loading}
+                  />
                 </motion.div>
               </div>
             </motion.div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeDecision, computeMultiTFConsensus, deriveAlignment } from "../decision";
+import { computeDecision, computeGlobalDecision, computeMultiTFConsensus, deriveAlignment } from "../decision";
 import { MarketContext, MultiTFRow } from "@/types/market";
 
 function makeCtx(overrides: Partial<MarketContext> = {}): MarketContext {
@@ -219,5 +219,128 @@ describe("computeDecision()", () => {
     const result = computeDecision(makeCtx(), rows, computeMultiTFConsensus(rows));
 
     expect(result.steps.map((step) => step.id)).toContain("mtf_conflict");
+  });
+});
+
+describe("computeGlobalDecision()", () => {
+  it("returns READY LONG for long bias with favorable execution context", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "bullish",
+      "1d": "bullish",
+      "1w": "bullish",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      pricePositionPct: 20,
+      rsi14: 52,
+      marketState: "expansion",
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("READY");
+    expect(result.bias).toBe("LONG");
+  });
+
+  it("returns WATCH LONG when execution context is mid-range", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "bullish",
+      "1d": "bullish",
+      "1w": "bullish",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      pricePositionPct: 50,
+      rsi14: 52,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("WATCH");
+    expect(result.bias).toBe("LONG");
+  });
+
+  it("returns WATCH LONG when execution RSI is overbought", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "bullish",
+      "1d": "bullish",
+      "1w": "bullish",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      pricePositionPct: 20,
+      rsi14: 78,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("WATCH");
+    expect(result.bias).toBe("LONG");
+  });
+
+  it("returns WAIT NONE for high conflict in expansion mid-range", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "sideways",
+      "1d": "bearish",
+      "1w": "bearish",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      marketState: "expansion",
+      pricePositionPct: 50,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("WAIT");
+    expect(result.bias).toBe("NONE");
+  });
+
+  it("returns WATCH NONE for high conflict range fade exception", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "sideways",
+      "1d": "bearish",
+      "1w": "bearish",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      marketState: "equilibrium",
+      pricePositionPct: 15,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("WATCH");
+    expect(result.bias).toBe("NONE");
+  });
+
+  it("returns WAIT NONE when consensus itself is weak", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "sideways",
+      "1d": "sideways",
+      "1w": "sideways",
+    });
+    const executionCtx = makeCtx({
+      timeframe: "1h",
+      pricePositionPct: 20,
+      rsi14: 52,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+
+    expect(result.signal).toBe("WAIT");
+    expect(result.bias).toBe("NONE");
   });
 });

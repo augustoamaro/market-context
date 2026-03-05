@@ -2,6 +2,8 @@ export type Trend = "up" | "down" | "sideways";
 export type MarketState = "expansion" | "equilibrium";
 export type Alignment = "bullish" | "bearish" | "sideways";
 export type Signal = "UP" | "DOWN" | "WATCH" | "WAIT";
+export type GlobalSignal = "WAIT" | "WATCH" | "READY";
+export type GlobalBias = "LONG" | "SHORT" | "NONE";
 export type ConvictionLabel =
   | "HIGH CONVICTION"
   | "LOW CONVICTION"
@@ -82,6 +84,16 @@ export interface Decision {
   scoreBreakdown: ScoreBreakdown;
   reasons: string[];
   steps: DecisionStep[];
+  consensus: MultiTFConsensus;
+}
+
+export interface GlobalDecision {
+  signal: GlobalSignal;
+  bias: GlobalBias;
+  label: string;
+  executionTF: string;
+  positionSizeModifier: number;
+  reasons: string[];
   consensus: MultiTFConsensus;
 }
 

@@ -6,6 +6,7 @@ import { Check, AlertTriangle, X } from "lucide-react";
 interface Props {
   decision: Decision | null;
   loading: boolean;
+  timeframe?: string;
 }
 
 const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: React.ComponentType<LucideProps> }> = {
@@ -14,14 +15,19 @@ const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: Re
   bad:  { color: "text-danger", chipBg: "bg-danger/[0.08] text-danger/80",       Icon: X },
 };
 
-export default function DecisionLogicCard({ decision, loading }: Props) {
+export default function DecisionLogicCard({ decision, loading, timeframe }: Props) {
   if (loading) return <CardSkeleton rows={4} height="h-64" />;
   if (!decision) return null;
 
   return (
     <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8">
-      <div className="mb-5 pl-1">
+      <div className="mb-5 pl-1 flex items-center justify-between gap-3">
         <h2 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">Decision Logic</h2>
+        {timeframe && (
+          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
+            Diagnostico: {timeframe}
+          </span>
+        )}
       </div>
 
       <div className="relative pl-3">

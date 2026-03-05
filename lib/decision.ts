@@ -4,6 +4,8 @@ import {
   ConvictionLabel,
   Decision,
   DecisionStep,
+  GlobalBias,
+  GlobalDecision,
   MarketContext,
   MultiTFConsensus,
   MultiTFRow,
@@ -477,6 +479,122 @@ export function computeDecision(
   }
 
   return { signal, label, confidenceScore, scoreBreakdown, reasons, steps, consensus };
+}
+
+export function computeGlobalDecision(
+  rows: MultiTFRow[],
+  executionCtx: MarketContext,
+  consensus: MultiTFConsensus = computeMultiTFConsensus(rows)
+): GlobalDecision {
+  let bias: GlobalBias = "NONE";
+
+  if (consensus.conflictLevel !== "high") {
+    if (consensus.recommendedAction === "LONG_BIAS") bias = "LONG";
+    if (consensus.recommendedAction === "SHORT_BIAS") bias = "SHORT";
+  }
+
+  const { pricePositionPct, rsi14, marketState, timeframe } = executionCtx;
+
+  const isMidRange = pricePositionPct >= 40 && pricePositionPct <= 60;
+  const isExtreme = pricePositionPct < 20 || pricePositionPct > 80;
+  const rsiOverbought = rsi14 > 72;
+  const rsiOversold = rsi14 < 28;
+
+  const poorLongEntry = isMidRange || rsiOverbought;
+  const poorShortEntry = isMidRange || rsiOversold;
+
+  const reasons = [consensus.summary];
+
+  if (bias === "NONE") {
+    if (consensus.conflictLevel === "high" && marketState === "equilibrium" && isExtreme) {
+      reasons.push(`Execution TF ${timeframe} em extremo de range (${Math.round(pricePositionPct)}%)`);
+      reasons.push("Fade de range permitido com tamanho reduzido");
+
+      return {
+        signal: "WATCH",
+        bias: "NONE",
+        label: "LOW CONVICTION — Range apenas",
+        executionTF: timeframe,
+        positionSizeModifier: 0.25,
+        reasons,
+        consensus,
+      };
+    }
+
+    if (consensus.conflictLevel === "high") {
+      reasons.push("Conflito HTF/LTF bloqueia o bias global");
+    } else {
+      reasons.push("Bias global insuficiente para entrada");
+    }
+
+    return {
+      signal: "WAIT",
+      bias: "NONE",
+      label: "NO TRADE",
+      executionTF: timeframe,
+      positionSizeModifier: 0,
+      reasons,
+      consensus,
+    };
+  }
+
+  if (bias === "LONG") {
+    if (poorLongEntry) {
+      if (isMidRange) reasons.push(`Execution TF ${timeframe} em mid-range (${Math.round(pricePositionPct)}%)`);
+      if (rsiOverbought) reasons.push(`RSI ${rsi14.toFixed(1)} — overbought no ${timeframe}`);
+
+      return {
+        signal: "WATCH",
+        bias: "LONG",
+        label: "AGUARDANDO SETUP — Posição desfavorável",
+        executionTF: timeframe,
+        positionSizeModifier: 0,
+        reasons,
+        consensus,
+      };
+    }
+
+    reasons.push(`Posição favorável no ${timeframe} (${Math.round(pricePositionPct)}%)`);
+    reasons.push(`RSI ${rsi14.toFixed(1)} no ${timeframe}`);
+
+    return {
+      signal: "READY",
+      bias: "LONG",
+      label: consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
+      executionTF: timeframe,
+      positionSizeModifier: consensus.conflictLevel === "none" ? 1 : 0.5,
+      reasons,
+      consensus,
+    };
+  }
+
+  if (poorShortEntry) {
+    if (isMidRange) reasons.push(`Execution TF ${timeframe} em mid-range (${Math.round(pricePositionPct)}%)`);
+    if (rsiOversold) reasons.push(`RSI ${rsi14.toFixed(1)} — oversold no ${timeframe}`);
+
+    return {
+      signal: "WATCH",
+      bias: "SHORT",
+      label: "AGUARDANDO SETUP — Posição desfavorável",
+      executionTF: timeframe,
+      positionSizeModifier: 0,
+      reasons,
+      consensus,
+    };
+  }
+
+  reasons.push(`Posição favorável no ${timeframe} (${Math.round(pricePositionPct)}%)`);
+  reasons.push(`RSI ${rsi14.toFixed(1)} no ${timeframe}`);
+
+  return {
+    signal: "READY",
+    bias: "SHORT",
+    label: consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
+    executionTF: timeframe,
+    positionSizeModifier: consensus.conflictLevel === "none" ? 1 : 0.5,
+    reasons,
+    consensus,
+  };
 }
 
 export function deriveAlignment(

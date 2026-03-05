@@ -32,3 +32,11 @@
 - `computeDecision` now carries `consensus` in the `Decision` object.
 - A high HTF/LTF conflict normally forces `signal = WAIT` with label `NO TRADE — Conflito HTF/LTF`.
 - If high conflict happens in `equilibrium` and price is at a range extreme, the system emits `WATCH` with label `LOW CONVICTION — Range apenas`.
+
+## Global Decision
+
+- `GlobalDecision` is separate from `Decision`.
+- `CurrentSignalCard` uses `computeGlobalDecision(rows, executionCtx)` with `executionCtx` fixed to `1h`.
+- The timeframe dropdown no longer changes the primary signal; it only changes local diagnostics.
+- `GlobalDecision.signal` is `WAIT | WATCH | READY`.
+- `GlobalDecision.bias` is `LONG | SHORT | NONE`.
