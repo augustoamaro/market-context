@@ -1,7 +1,7 @@
 "use client";
 
 import { formatPrice, formatPct } from "@/lib/format";
-import { Activity, LayoutGrid } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"];

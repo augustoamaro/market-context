@@ -1,3 +1,4 @@
+import type { LucideProps } from "lucide-react";
 import { Decision, StepStatus } from "@/types/market";
 import CardSkeleton from "./Skeleton";
 import { Check, AlertTriangle, X } from "lucide-react";
@@ -7,7 +8,7 @@ interface Props {
   loading: boolean;
 }
 
-const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: any }> = {
+const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: React.ComponentType<LucideProps> }> = {
   ok:   { color: "text-text",   chipBg: "bg-white/[0.04] text-text-muted/80",    Icon: Check },
   warn: { color: "text-warn",   chipBg: "bg-warn/[0.08] text-warn/80",           Icon: AlertTriangle },
   bad:  { color: "text-danger", chipBg: "bg-danger/[0.08] text-danger/80",       Icon: X },
