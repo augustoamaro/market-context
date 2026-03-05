@@ -2,6 +2,7 @@
 
 import { MarketContext } from "@/types/market";
 import { formatUpdatedAt } from "@/lib/format";
+import { RefreshCw, Copy, ExternalLink, Settings2 } from "lucide-react";
 
 interface Props {
   ctx: MarketContext | null;
@@ -23,7 +24,7 @@ export default function ActionsCard({ ctx, loading, onRefresh }: Props) {
       `State: ${ctx.stateReason}`,
       `Updated: ${ctx.updatedAt}`,
     ].join("\n");
-    navigator.clipboard.writeText(text).catch(() => {});
+    navigator.clipboard.writeText(text).catch(() => { });
   }
 
   function handleTradingView() {
@@ -33,38 +34,46 @@ export default function ActionsCard({ ctx, loading, onRefresh }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#1E2A40] bg-[#0F1B2D] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+    <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8 relative">
+      <div className="flex items-center gap-2 mb-8 pl-1">
+        <Settings2 className="size-4 text-text-muted/60" />
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">Actions</h2>
+      </div>
+
       <div className="flex flex-col gap-2">
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="w-full rounded-xl bg-info px-4 py-2.5 text-sm font-semibold text-[#0B1220] transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+          className="group/btn w-full rounded-lg bg-primary text-white px-4 py-2.5 text-[13px] font-medium transition-all hover:bg-blue-600 hover:glow-primary disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading ? "Refreshing…" : "Refresh Analysis"}
+          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+          {loading ? "Refreshing" : "Refresh Analysis"}
         </button>
 
         <button
           onClick={handleCopy}
           disabled={!ctx}
-          className="w-full rounded-xl border border-[#1E2A40] bg-[#0C1626] px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-text hover:border-muted disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+          className="w-full rounded-lg border border-white/10 bg-transparent px-4 py-2.5 text-[13px] font-medium text-text-muted transition-all hover:text-primary hover:bg-primary/10 hover:border-primary/20 hover:glow-primary disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
+          <Copy className="size-3.5" />
           Copy Summary
         </button>
 
         <button
           onClick={handleTradingView}
           disabled={!ctx}
-          className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-info cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-lg border border-transparent bg-transparent px-4 py-2.5 text-[13px] font-medium text-text-muted transition-all hover:text-primary hover:bg-primary/10 hover:glow-primary disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          Open in TradingView ↗
+          Open Chart
+          <ExternalLink className="size-3.5" />
         </button>
       </div>
 
       {ctx && (
-        <p className="mt-4 flex justify-between text-[10px] font-mono text-muted border-t border-[#1E2A40] pt-3">
-          <span>Last updated</span>
+        <div className="mt-8 flex justify-between items-center text-[10px] font-mono text-text-muted/60 pt-4 border-t border-white/5 pl-1">
+          <span className="uppercase tracking-[0.2em]">Updated</span>
           <span>{formatUpdatedAt(ctx.updatedAt)}</span>
-        </p>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, Variants } from "framer-motion";
 import { MarketContext, MultiTFRow } from "@/types/market";
 import { computeDecision, deriveAlignment } from "@/lib/decision";
 import Header from "./components/Header";
@@ -86,8 +87,21 @@ export default function DashboardPage() {
 
   const decision = activeCtx ? computeDecision(activeCtx, allRows) : null;
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0B1220] text-[#E6EEF8]">
+    <div className="min-h-screen">
       <Header
         symbol={symbol}
         timeframe={timeframe}
@@ -97,27 +111,44 @@ export default function DashboardPage() {
         onTimeframeChange={setTimeframe}
       />
 
-      <main className="mx-auto max-w-[1200px] px-6 py-6">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+      <main className="mx-auto max-w-[1200px] px-6 py-6 pb-20">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-6 lg:grid-cols-12"
+        >
           {/* Left column — 8/12 */}
-          <div className="space-y-4 lg:col-span-8">
-            <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
-            <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
-            <TrendMonitorCard
-              rows={allRows}
-              loading={loading}
-              error={error}
-              activeTimeframe={timeframe}
-            />
+          <div className="space-y-6 lg:col-span-8">
+            <motion.div variants={itemVariants}>
+              <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <TrendMonitorCard
+                rows={allRows}
+                loading={loading}
+                error={error}
+                activeTimeframe={timeframe}
+              />
+            </motion.div>
           </div>
 
           {/* Right sidebar — 4/12 */}
-          <div className="space-y-4 lg:col-span-4">
-            <DecisionLogicCard decision={decision} loading={loading} />
-            <CurrentSignalCard decision={decision} loading={loading} />
-            <ActionsCard ctx={activeCtx} loading={loading} onRefresh={load} />
+          <div className="space-y-6 lg:col-span-4">
+            <motion.div variants={itemVariants}>
+              <DecisionLogicCard decision={decision} loading={loading} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <CurrentSignalCard decision={decision} loading={loading} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <ActionsCard ctx={activeCtx} loading={loading} onRefresh={load} />
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatPrice, formatPct } from "@/lib/format";
+import { Activity, LayoutGrid } from "lucide-react";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
@@ -22,50 +23,59 @@ export default function Header({
   onSymbolChange,
   onTimeframeChange,
 }: HeaderProps) {
-  const changeColor = priceChangePct >= 0 ? "text-success" : "text-danger";
-
   return (
-    <header className="sticky top-0 z-50 border-b border-[#1E2A40] bg-[#0B1220]/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-6 py-3">
+    <header className="sticky top-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-md border-b flex-shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="mx-auto flex max-w-[1200px] items-center h-14 px-6 md:px-8">
+
         {/* Brand */}
-        <div className="flex items-center gap-2 mr-4">
-          <span className="size-2 rounded-full bg-success animate-pulse" />
-          <span className="text-sm font-semibold tracking-widest text-text uppercase">
+        <div className="flex items-center gap-2.5 mr-8">
+          <LayoutGrid className="size-4 text-text" strokeWidth={2} />
+          <span className="text-[13px] font-semibold tracking-wide text-text">
             HardStop
           </span>
         </div>
 
-        {/* Symbol select */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs uppercase tracking-wider text-muted">Symbol</label>
-          <select
-            value={symbol}
-            onChange={(e) => onSymbolChange(e.target.value)}
-            className="rounded-lg border border-[#1E2A40] bg-[#0F1B2D] px-3 py-1.5 text-sm text-text focus:outline-none focus:border-info cursor-pointer"
-          >
-            {SYMBOLS.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+        {/* Controls Container */}
+        <div className="flex items-center gap-6 text-[12px] font-medium text-text-muted">
 
-        {/* Timeframe select */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs uppercase tracking-wider text-muted">TF</label>
-          <div className="flex rounded-lg border border-[#1E2A40] bg-[#0F1B2D] overflow-hidden">
-            {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                onClick={() => onTimeframeChange(tf)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                  tf === timeframe
-                    ? "bg-info text-[#0B1220] font-semibold"
-                    : "text-muted hover:text-text"
-                }`}
+          {/* Symbol select */}
+          <div className="flex items-center gap-3">
+            <span className="select-none">Symbol</span>
+            <div className="relative">
+              <select
+                value={symbol}
+                onChange={(e) => onSymbolChange(e.target.value)}
+                className="appearance-none bg-transparent text-text pr-4 py-1 focus:outline-none cursor-pointer"
               >
-                {tf}
-              </button>
-            ))}
+                {SYMBOLS.map((s) => (
+                  <option key={s} value={s} className="bg-surface text-text">{s}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center">
+                <svg className="size-3 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-px h-3 bg-white/10" />
+
+          {/* Timeframe select */}
+          <div className="flex items-center gap-3">
+            <span className="select-none">View</span>
+            <div className="flex items-center gap-1">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => onTimeframeChange(tf)}
+                  className={`px-2 py-1 rounded-[4px] transition-colors duration-200 cursor-pointer ${tf === timeframe
+                      ? "bg-white/10 text-text font-medium"
+                      : "text-text-muted hover:text-text hover:bg-white/[0.04]"
+                    }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -74,12 +84,12 @@ export default function Header({
 
         {/* Price ticker */}
         {price > 0 && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted font-mono">{symbol}</span>
-            <span className="text-lg font-semibold font-mono text-text">
+          <div className="flex items-center gap-4 text-[12px]">
+            <span className="font-mono text-text-muted">{symbol}</span>
+            <span className="font-mono font-medium text-text">
               ${formatPrice(price)}
             </span>
-            <span className={`text-sm font-mono font-medium ${changeColor}`}>
+            <span className={`font-mono font-medium px-1.5 py-0.5 rounded-[4px] ${priceChangePct >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
               {formatPct(priceChangePct, true)}
             </span>
           </div>
