@@ -1,0 +1,16 @@
+# Variáveis de Ambiente
+
+| Variável | Obrigatória | Default | Efeito |
+|---|---|---|---|
+| `BINANCE_API_KEY` | Não | `""` | Header opcional para endpoints públicos |
+| `BINANCE_SECRET` | Não | `""` | Necessária só para endpoints assinados privados |
+| `BINANCE_BASE_URL` | Não | `https://api.binance.com` | Base da Binance |
+| `CACHE_TTL_SECONDS` | Não | `60` | TTL do cache em memória |
+| `DEFAULT_LIMIT` | Não | `500` | Quantidade de candles por fetch |
+| `RATE_LIMIT_RPM` | Não | `120` | Limite de requests/min por IP |
+
+## Segurança
+
+- Nunca commitar `.env`.
+- Preferir `.env.local` para segredos locais.
+- `BINANCE_SECRET` não deve ir para client side.

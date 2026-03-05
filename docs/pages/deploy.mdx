@@ -1,0 +1,21 @@
+# Deploy
+
+## Estratégia recomendada
+
+Deploy da docs como projeto separado no Vercel, apontando para `docs/`.
+
+## Build command
+
+```bash
+pnpm --filter docs build
+```
+
+## Start command
+
+```bash
+pnpm --filter docs start
+```
+
+## Variáveis
+
+A docs em si não depende de chaves da Binance para renderizar páginas estáticas.

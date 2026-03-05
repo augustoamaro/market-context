@@ -1,0 +1,15 @@
+# No Trade Rule
+
+Regra dura no código:
+
+- `marketState === "equilibrium"`
+- `pricePositionPct` entre `40` e `60`
+
+Resultado automático:
+
+- `signal: WAIT`
+- `label: NO TRADE`
+- `confidenceScore: 0`
+- breakdown zerado
+
+Objetivo: reduzir overtrading em zona de baixa assimetria.

@@ -1,0 +1,11 @@
+# Decision Engine — Overview
+
+Implementação principal: `lib/decision.ts`.
+
+Pipeline:
+
+1. Monta 5 steps (`trend`, `regime`, `momentum`, `position`, `volume`)
+2. Aplica regra de no-trade quando necessário
+3. Calcula score ponderado (0–100)
+4. Define `signal` (`UP`, `DOWN`, `WAIT`)
+5. Define `label` (`HIGH CONVICTION`, `LOW CONVICTION`, `NO TRADE`)

@@ -1,0 +1,14 @@
+{
+  "index": "Introdução",
+  "getting-started": "Getting Started",
+  "architecture": "Arquitetura",
+  "concepts": "Conceitos",
+  "indicators": "Indicadores",
+  "decision-engine": "Decision Engine",
+  "ui-components": "UI Components",
+  "api-reference": "API Reference",
+  "journal": "Journal",
+  "configuration": "Configuração",
+  "extending": "Extensões",
+  "deploy": "Deploy"
+}

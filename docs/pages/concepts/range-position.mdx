@@ -1,0 +1,16 @@
+# Range Position
+
+A função `priceRange` usa janela de 20 candles (`RANGE_LOOKBACK`).
+
+Calcula:
+
+- `high` = máxima da janela
+- `low` = mínima da janela
+- `pricePositionPct = ((price - low) / (high - low)) * 100`
+
+## Leitura
+
+- 0–25%: região inferior do range
+- 40–60%: miolo (zona de baixa convicção)
+- 75–100%: região superior do range
+- &gt;100% ou &lt;0%: breakout/breakdown

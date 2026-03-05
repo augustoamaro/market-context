@@ -1,0 +1,20 @@
+# EMA
+
+Implementação: `lib/indicators/ema.ts`.
+
+## Fórmula
+
+- `k = 2 / (period + 1)`
+- Seed inicial: SMA dos primeiros `period` candles
+- Atualização: `EMA = price * k + EMA_prev * (1 - k)`
+
+## Períodos usados
+
+- `EMA20`
+- `EMA50`
+- `EMA200`
+
+## Precisão vs TradingView
+
+O projeto usa `DEFAULT_LIMIT=500` para reduzir divergência do EMA200
+(aprox. `±0.3%`), enquanto limites menores tendem a divergir mais.

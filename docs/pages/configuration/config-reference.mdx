@@ -1,0 +1,17 @@
+# Config Reference (`lib/config.ts`)
+
+## Exports principais
+
+- `SYMBOLS`: universo de ativos do scanner
+- `TIMEFRAMES`: `15m`, `1h`, `4h`, `1d`
+- `CACHE_TTL_MS`: TTL de cache OHLCV
+- `CANDLE_LIMIT`: limite de candles por fetch
+- `RATE_LIMIT_RPM`: proteção por IP
+- `EXPANSION_VOLUME_RATIO`: gatilho de expansão
+- `EQUILIBRIUM_VOLUME_RATIO`: gatilho de equilíbrio
+
+## Trade-offs
+
+- aumentar `CANDLE_LIMIT` melhora estabilidade do EMA200 e aumenta latência
+- reduzir `CACHE_TTL_MS` melhora frescor e aumenta req/s na Binance
+- ajustar `RATE_LIMIT_RPM` depende do perfil de uso

@@ -1,0 +1,29 @@
+# HardStop Docs
+
+Documentação técnica do **HardStop Market Context Dashboard**.
+
+Este site descreve como o sistema funciona por dentro: pipeline de dados,
+indicadores, engine de decisão, componentes de UI e APIs.
+
+## Quick links
+
+- [Quick Start](/getting-started/quick-start)
+- [Arquitetura](/architecture/overview)
+- [Conceitos](/concepts/market-regime)
+- [Decision Engine](/decision-engine/overview)
+- [API Reference](/api-reference/context)
+
+## Features principais
+
+| Feature | Onde está no código |
+|---|---|
+| Cálculo de contexto de mercado | `lib/services/marketContext.ts` |
+| Indicadores (EMA, RSI, MACD, volume, range) | `lib/indicators/*` |
+| Motor de decisão com score 0–100 | `lib/decision.ts` |
+| Endpoints HTTP do dashboard | `app/api/*/route.ts` |
+| Snapshot/journal local | `lib/journal.ts` |
+
+## Escopo
+
+- Público alvo: devs mantendo o dashboard e evoluindo estratégia.
+- Objetivo: onboarding rápido + referência de implementação.

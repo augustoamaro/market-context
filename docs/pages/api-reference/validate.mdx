@@ -1,0 +1,16 @@
+# `GET /api/validate`
+
+Endpoint para conferir cálculos vs TradingView.
+
+## Retorna
+
+- `lastClosed` e `current` candle
+- bloco `computed` com EMA/RSI/MACD/volume/range
+- `warnings` (histórico insuficiente, candle aberto etc.)
+- `howToVerify` com passos de validação manual
+
+## Fluxo de conferência
+
+1. Abrir TradingView no mesmo par/timeframe.
+2. Aplicar EMA(20/50/200), RSI(14), MACD(12,26,9), Volume MA(20).
+3. Comparar com o JSON do endpoint.

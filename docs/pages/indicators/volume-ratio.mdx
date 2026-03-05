@@ -1,0 +1,21 @@
+# Volume Ratio
+
+Implementação: `lib/indicators/volume.ts`.
+
+## Base
+
+`volumeRatio = volumeAtual / média(volume, 20 candles fechados)`
+
+## Normalização de candle aberto
+
+Se o candle atual ainda está aberto, o volume é normalizado por progresso do
+candle (mínimo de 5% para evitar explosão numérica).
+
+Exemplo: candle com 25% de progresso e volume 50 -> volume normalizado ~200.
+
+## Thresholds usados na decisão
+
+- `>= 130%`: forte
+- `>= 100%`: bom
+- `>= 70%`: moderado
+- `< 70%`: fraco

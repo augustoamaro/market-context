@@ -1,0 +1,16 @@
+# `GET /api/ticker`
+
+Endpoint leve para preços e variação 24h da watchlist.
+
+## Query params
+
+- `symbols` (CSV obrigatório)
+
+## Campos retornados
+
+- `symbol`
+- `lastPrice`
+- `priceChange`
+- `priceChangePercent`
+
+Usado na sidebar para atualização frequente sem carregar candles.

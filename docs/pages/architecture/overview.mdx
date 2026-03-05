@@ -1,0 +1,28 @@
+# Arquitetura — Overview
+
+## Fluxo macro
+
+```mermaid
+flowchart LR
+  A[Binance API] --> B[fetchOHLCV]
+  B --> C[Cache em memória 60s]
+  C --> D[buildMarketContext]
+  D --> E[Indicadores: EMA/RSI/MACD/Volume/Range]
+  E --> F[MarketContext]
+  F --> G[computeDecision]
+  G --> H[Decision]
+  H --> I[React UI]
+```
+
+## Camadas
+
+- `app/api/*`: entrada HTTP.
+- `lib/services/*`: orquestração do contexto.
+- `lib/indicators/*`: funções puras de cálculo.
+- `lib/decision.ts`: score + sinal final.
+- `app/components/*`: visualização e interação.
+
+## Decisão de stack
+
+- Next.js fullstack: API routes + UI no mesmo projeto.
+- Cache em memória: reduz carga sem precisar Redis.

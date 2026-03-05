@@ -1,0 +1,22 @@
+# Journal API (`lib/journal.ts`)
+
+## `saveSnapshot(snapshot): boolean`
+
+- retorna `false` se entrar no duplicate guard (60s)
+- retorna `true` quando salva
+
+## `getSnapshots(): ContextSnapshot[]`
+
+Lê todos os snapshots.
+
+## `updateSnapshot(id, patch): void`
+
+Atualiza campos de um snapshot existente.
+
+## `deleteSnapshot(id): void`
+
+Remove snapshot por ID.
+
+## `exportSnapshots(): string`
+
+Exporta CSV com cabeçalhos padronizados.

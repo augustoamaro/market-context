@@ -1,0 +1,27 @@
+# Steps
+
+Cada step retorna `ok`, `warn` ou `bad` com detalhes textuais.
+
+## Passo 1: Trend Alignment
+
+- Compara tendência atual com alinhamento multi-timeframe.
+- `ok` quando &gt;=3 timeframes estão alinhados com a direção.
+
+## Passo 2: Regime
+
+- `expansion` -> tende a `ok`
+- `equilibrium` -> tende a `warn`
+
+## Passo 3: Momentum
+
+- Baseado no RSI.
+- Extremos geram `warn`.
+
+## Passo 4: Position
+
+- Mid-range (40–60%) -> `bad`
+- Extremos (&gt;90% ou &lt;10%) -> `warn`
+
+## Passo 5: Volume
+
+- Usa `volumeRatioPct` por faixas (130/100/70).

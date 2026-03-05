@@ -1,0 +1,24 @@
+# `GET /api/context`
+
+## Modos
+
+- Single: `?symbol=BTCUSDT&timeframe=4h`
+- Batch: `?symbols=BTCUSDT,ETHUSDT&timeframe=4h`
+
+## Validações
+
+- `timeframe` precisa estar em `TIMEFRAMES`
+- `symbol`/`symbols` precisa estar em `SYMBOLS`
+- Limite por IP via `isRateLimited` (default `120 req/min`)
+
+## Batch mode
+
+- Processa em chunks de 50 símbolos
+- Usa `Promise.allSettled`
+- Falhas individuais não derrubam o lote inteiro
+
+## Exemplo
+
+```bash
+curl "http://localhost:3000/api/context?symbol=BTCUSDT&timeframe=4h"
+```

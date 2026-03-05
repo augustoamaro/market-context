@@ -1,0 +1,20 @@
+# Current Signal Card
+
+Arquivo: `app/components/CurrentSignalCard.tsx`.
+
+## O que aparece
+
+- sinal final (`UP`, `DOWN`, `WAIT`)
+- `conviction label`
+- score total
+
+## Guard anti-overtrading
+
+- score < 40: banner de não operar
+- score < 60: aviso de reduzir tamanho
+
+## Snapshot e decisão
+
+- botão **Save Snapshot** grava contexto no journal
+- duplicate guard de 60s por `pair + timeframe + signal`
+- após salvar, abre form com `Long`, `Short`, `No Trade` ou `Skip`

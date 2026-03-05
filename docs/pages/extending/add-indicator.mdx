@@ -1,0 +1,11 @@
+# Add Indicator
+
+Fluxo padrão para inserir novo indicador:
+
+1. Criar função pura em `lib/indicators/myIndicator.ts`
+2. Re-exportar em `lib/indicators/index.ts`
+3. Chamar no `buildMarketContext` (`lib/services/marketContext.ts`)
+4. Atualizar tipo em `types/market.ts`
+5. Exibir na UI (card novo ou existente)
+
+Recomendação: adicionar testes unitários em `lib/indicators/__tests__`.

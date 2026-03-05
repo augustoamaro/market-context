@@ -1,0 +1,27 @@
+# Estrutura de Arquivos
+
+```text
+app/
+  api/
+  components/
+  page.tsx
+lib/
+  binance/
+  indicators/
+  services/
+  config.ts
+  decision.ts
+  journal.ts
+types/
+  market.ts
+docs/
+  pages/
+```
+
+## Mapeamento rápido
+
+- `lib/config.ts`: símbolos, timeframes, thresholds, envs.
+- `lib/binance/client.ts`: fetch de klines + cache.
+- `lib/services/marketContext.ts`: contexto completo por ativo/timeframe.
+- `lib/decision.ts`: steps, score e sinal.
+- `app/components/CurrentSignalCard.tsx`: sinal final + snapshot.

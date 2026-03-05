@@ -1,0 +1,18 @@
+# MACD
+
+Implementação: `lib/indicators/macd.ts`.
+
+## Parâmetros
+
+- Fast EMA: 12
+- Slow EMA: 26
+- Signal EMA: 9
+
+## Saídas
+
+- `macdLine`
+- `signalLine`
+- `histogram = macdLine - signalLine`
+
+A implementação alinha corretamente os arrays de EMA para evitar offset
+entre série rápida e lenta.

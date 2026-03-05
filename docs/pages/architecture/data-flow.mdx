@@ -1,0 +1,19 @@
+# Data Flow
+
+## Requisição principal
+
+1. `app/page.tsx` chama `/api/context` para cada timeframe.
+2. `app/api/context/route.ts` valida símbolo/timeframe e aplica rate limit.
+3. `buildMarketContext` busca candles e calcula indicadores.
+4. Resposta JSON retorna `MarketContext`.
+5. `computeDecision` transforma contexto em sinal e score.
+
+## Multi-timeframe
+
+- `Promise.allSettled` em paralelo no cliente para `15m`, `1h`, `4h`, `1d`.
+- Mudança de timeframe é instantânea: seleciona contexto já carregado em `allContexts`.
+
+## Refresh
+
+- App principal: `setInterval` a cada 60s.
+- Cache server-side também usa TTL de 60s por `symbol:interval`.

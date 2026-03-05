@@ -1,0 +1,11 @@
+# Add Symbol
+
+1. Edite `SYMBOLS` em `lib/config.ts`.
+2. Garanta que o símbolo exista na Binance (`USDT` spot conforme estratégia).
+3. Valide com:
+
+```bash
+curl "http://localhost:3000/api/context?symbol=NOVOUSDT&timeframe=4h"
+```
+
+Se o ativo for inválido, a API retorna `400`.

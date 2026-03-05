@@ -1,0 +1,27 @@
+# Scoring
+
+## Pesos
+
+| Dimensão | Máximo |
+|---|---|
+| Trend | 30 |
+| Regime | 20 |
+| Position | 20 |
+| Momentum | 15 |
+| Volume | 15 |
+
+## Fórmula
+
+`confidenceScore = trend + regime + position + momentum + volume`
+
+com teto em `100`.
+
+## Exemplo simplificado
+
+- Trend: 22 (3 TFs alinhados)
+- Regime: 20 (expansion)
+- Position: 20 (extremo favorável)
+- Momentum: 10 (RSI moderado)
+- Volume: 15 (>=130%)
+
+Score final: `87` -> cenário de alta convicção.

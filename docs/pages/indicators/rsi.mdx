@@ -1,0 +1,16 @@
+# RSI
+
+Implementação: `lib/indicators/rsi.ts`.
+
+## Método
+
+RSI com suavização de Wilder (RMA):
+
+- médias iniciais de ganho/perda nos primeiros 14 períodos
+- atualização incremental por `period`
+
+## Leitura usada no app
+
+- `45–65`: zona saudável (step de momentum tende a `ok`)
+- `>75`: alerta de sobrecompra
+- `<25`: alerta de sobrevenda

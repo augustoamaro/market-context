@@ -1,0 +1,17 @@
+# Saving Snapshots
+
+Fluxo disparado por **Save Snapshot** em `CurrentSignalCard`.
+
+Campos gravados incluem:
+
+- par/timeframe
+- regime/tendência
+- RSI, MACD histogram, volume ratio
+- score, sinal e label
+- `contextHash` para referência rápida
+
+## Duplicate guard
+
+Evita duplicatas em janela de 60s para a combinação:
+
+`pair + timeframe + signal`

@@ -1,0 +1,18 @@
+# Price Range
+
+Implementação: `lib/indicators/range.ts`.
+
+## Cálculo
+
+- Janela de 20 candles
+- `rangeHigh` = máxima da janela
+- `rangeLow` = mínima da janela
+- `pricePositionPct` = posição relativa do fechamento atual
+
+## Uso
+
+Esse indicador alimenta:
+
+- classificação de regime (`marketState`)
+- step de posição no score
+- regra de no-trade no miolo do range
