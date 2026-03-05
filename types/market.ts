@@ -61,3 +61,25 @@ export interface Decision {
   reasons: string[];
   steps: DecisionStep[];
 }
+
+export interface ContextSnapshot {
+  version: 1;
+  id: string;
+  timestamp: string;
+  contextHash: string;
+  pair: string;
+  timeframe: string;
+  regime: string;
+  trend: string;
+  rangePosition: number;
+  rsi: number;
+  macdHistogram: number;
+  volumeRatioPct: number;
+  confidenceScore: number;
+  signal: string;
+  label: string;
+  decision?: "long" | "short" | "no_trade";
+  result?: "win" | "loss" | "breakeven";
+  notes?: string;
+  warnings?: string[];
+}

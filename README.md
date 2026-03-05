@@ -131,6 +131,7 @@ market-context/
 │   ├── config.ts                     # Symbols, timeframes, thresholds, env vars
 │   ├── decision.ts                   # Decision engine: 5 weighted steps → signal + conviction score
 │   ├── format.ts                     # Price, percent, volume formatters
+│   ├── journal.ts                    # localStorage helpers for context snapshots (client-only)
 │   ├── rateLimit.ts                  # Sliding-window rate limiter (per IP)
 │   ├── binance/
 │   │   ├── client.ts                 # OHLCV fetch + 60s in-memory cache
@@ -442,10 +443,31 @@ The **Confidence Score (0–100)** is not a probability — it is a relative str
 
 Reference scale:
 - `0` = **NO TRADE** (auto-blocked: Equilibrium + mid-range)
-- `< 40` = **WAIT / LOW CONVICTION** (multiple headwinds)
-- `40–64` = **LOW CONVICTION** (directional setup with caveats)
+- `< 40` = **WAIT / LOW CONVICTION** (multiple headwinds) → red banner **DO NOT TRADE**
+- `40–64` = **LOW CONVICTION** (directional setup with caveats) → yellow banner **Reduce size**
 - `≥ 65` = **HIGH CONVICTION** (most filters aligned)
 - `100` = perfect setup (all five dimensions maxed)
+
+#### Anti-Overtrading Guard
+
+The card shows a colored warning banner based on the score:
+
+| Score | Banner | Meaning |
+|-------|--------|---------|
+| < 40 | 🔴 **DO NOT TRADE — Context too weak** | Too many headwinds — skip this setup |
+| 40–59 | 🟡 **Reduce size — low conviction** | Setup exists but proceed with caution |
+| ≥ 60 | _(no banner)_ | Context is acceptable |
+
+The guard is informational only — it does not block the UI.
+
+#### Save Snapshot
+
+Click **Save Snapshot** at the bottom of the card to save the current market context to `localStorage` (`hsc_snapshots` key). After saving, an inline form appears to record your trade decision:
+
+- **Long** / **Short** / **No Trade** — attached to the snapshot immediately
+- **Skip** — saves the snapshot without a decision
+
+A **60-second duplicate guard** prevents saving the same symbol + timeframe + signal twice within a minute. All snapshot data (pair, timeframe, regime, score, RSI, volume, etc.) is stored locally for future journal/analytics features.
 
 ---
 
@@ -556,6 +578,7 @@ Compare `lastClosed` + `computed` values against TradingView with EMA(20/50/200)
 - **Watchlist:** favorites are persisted in `localStorage`. Ticker prices refresh every 30s via `/api/ticker` (lightweight — no candles fetched). Best-setup star scans all configured symbols every 60s in 50-symbol chunks.
 - **Tests:** 52 unit tests covering EMA, RSI, MACD, volume normalization, market state classification, and the full decision engine (including per-dimension volume scoring).
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
+- **Journal / snapshots:** `lib/journal.ts` provides client-side localStorage helpers (`saveSnapshot`, `getSnapshots`, `updateSnapshot`, `deleteSnapshot`, `exportSnapshots`). All snapshot I/O goes through these helpers — localStorage is never called directly from components. A 60s duplicate guard prevents accidental double-saves.
 
 ---
 

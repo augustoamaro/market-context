@@ -151,7 +151,7 @@ export default function DashboardPage() {
                   <DecisionLogicCard decision={decision} loading={loading} />
                 </motion.div>
                 <motion.div variants={itemVariants}>
-                  <CurrentSignalCard decision={decision} loading={loading} />
+                  <CurrentSignalCard decision={decision} ctx={activeCtx} loading={loading} />
                 </motion.div>
               </div>
             </motion.div>
