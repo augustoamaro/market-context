@@ -1,7 +1,7 @@
 # HardStop — Market Context Dashboard
 
 A real-time market analysis dashboard built with **Next.js**, **TypeScript**, and **TailwindCSS**.
-Fetches OHLCV data from Binance and classifies the current market context across multiple timeframes — trend direction, price position within the range, market regime, momentum, and MACD — to help traders identify high-probability setups and avoid low-conviction environments.
+Fetches OHLCV data from Binance and classifies market context across **15m, 1h, 4h, 1d, and 1w** — trend direction, price position within the range, market regime, EMA structure, RSI, volume, and MACD — then combines them into a **stable global decision** that does not change when the user switches the dropdown timeframe.
 
 Part of the **HardStop Trading Tools**: a set of practical market-analysis systems focused on price action, liquidity, and orderflow.
 
@@ -9,7 +9,7 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen?logo=vitest)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen?logo=vitest)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Preview
@@ -53,7 +53,7 @@ Open: `http://localhost:3000`
 | `pnpm dev` | Start dev server at `localhost:3000` |
 | `pnpm build` | Production build |
 | `pnpm start` | Start production server |
-| `pnpm test` | Run all 52 unit tests (Vitest) |
+| `pnpm test` | Run the unit test suite (Vitest) |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm test:coverage` | Run tests with v8 coverage report |
 | `pnpm lint` | Run ESLint |
@@ -69,7 +69,27 @@ Open: `http://localhost:3000`
 | Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
 | Charts | TradingView Lightweight Charts v5 |
 | Animations | Framer Motion |
-| Tests | Vitest (52 tests) |
+| Tests | Vitest |
+
+---
+
+## Core Decision Model
+
+The app now separates **global bias** from **timeframe diagnosis**:
+
+- **Global Decision**: uses weighted multi-timeframe consensus plus a fixed `1h` execution timeframe to emit `WAIT`, `WATCH`, or `READY`.
+- **Local Diagnosis**: the selected dropdown timeframe still drives `DecisionLogicCard`, `RegimeHeroCard`, `RangePositionCard`, and the chart.
+- **Stable signal**: switching the dropdown no longer changes the main signal shown in `CurrentSignalCard`.
+
+Timeframe weights used by the consensus engine:
+
+| Timeframe | Weight |
+|-----------|--------|
+| `1w` | 40 |
+| `1d` | 25 |
+| `4h` | 15 |
+| `1h` | 12 |
+| `15m` | 8 |
 
 ---
 
@@ -113,23 +133,23 @@ market-context/
 │   │
 │   ├── components/
 │   │   ├── CandleChart.tsx           # TradingView candlestick chart (SSR-safe)
-│   │   ├── CurrentSignalCard.tsx     # Final signal (UP/DOWN/WAIT) + conviction score
-│   │   ├── DecisionLogicCard.tsx     # 5-step decision timeline + score breakdown bars
+│   │   ├── CurrentSignalCard.tsx     # Global decision card (LONG/SHORT/NONE + WAIT/WATCH/READY)
+│   │   ├── DecisionLogicCard.tsx     # Local TF diagnosis timeline + score breakdown bars
 │   │   ├── Header.tsx                # Timeframe tabs + price ticker
 │   │   ├── RangePositionCard.tsx     # Price position within 20-candle range
 │   │   ├── RegimeHeroCard.tsx        # Market regime + RSI/Volume/MACD stats
 │   │   ├── Sidebar.tsx               # Watchlist (favorites) + best-setup star + search
 │   │   ├── Skeleton.tsx              # Loading skeleton
-│   │   └── TrendMonitorCard.tsx      # Multi-timeframe EMA alignment table
+│   │   └── TrendMonitorCard.tsx      # Multi-timeframe EMA table + weighted consensus bar
 │   │
 │   ├── error.tsx                     # Global error boundary (Next.js App Router)
 │   ├── globals.css                   # Design tokens + bento-card utilities
 │   ├── layout.tsx
-│   └── page.tsx                      # State orchestration + auto-refresh (60s)
+│   └── page.tsx                      # State orchestration + global/local decision split
 │
 ├── lib/
 │   ├── config.ts                     # Symbols, timeframes, thresholds, env vars
-│   ├── decision.ts                   # Decision engine: 5 weighted steps → signal + conviction score
+│   ├── decision.ts                   # Consensus engine + local decision + global decision
 │   ├── format.ts                     # Price, percent, volume formatters
 │   ├── journal.ts                    # localStorage helpers for context snapshots (client-only)
 │   ├── rateLimit.ts                  # Sliding-window rate limiter (per IP)
@@ -157,7 +177,7 @@ market-context/
 │   ├── marketState.test.ts
 │   └── rsi.test.ts
 │
-├── types/market.ts                   # MarketContext, Decision, MultiTFRow, etc.
+├── types/market.ts                   # MarketContext, Decision, GlobalDecision, MultiTFRow, etc.
 ├── .env.example
 ├── vitest.config.ts
 └── package.json
@@ -181,6 +201,7 @@ market-context/
   "pricePositionPct": 83,
   "rangeHigh": 75000,
   "rangeLow": 68000,
+  "ema12": 72780,
   "ema20": 72400,
   "ema50": 70100,
   "ema200": 58200,
@@ -225,9 +246,9 @@ Debug endpoint for cross-checking computed indicators against TradingView. Retur
   "symbol": "BTCUSDT", "timeframe": "4h", "candleCount": 500,
   "lastClosed": { "open": 84200, "high": 85100, "low": 83900, "close": 84750, "volume": 1234.5 },
   "current":    { "open": 84750, "close": 84820, "progressPct": 62 },
-  "computed":   { "ema20": 84320.1, "ema50": 82100.4, "ema200": 71500.8, "rsi14": 61.4,
+  "computed":   { "ema12": 84510.7, "ema20": 84320.1, "ema50": 82100.4, "ema200": 71500.8, "rsi14": 61.4,
                   "volumeRatioPct": 138, "macdHistogram": 30.3, "priceChangePct24h": 1.75 },
-  "howToVerify": ["1. Open TradingView → BTCUSDT → 4h", "2. Add EMA(20/50/200), RSI(14), MACD(12,26,9)", "..."],
+  "howToVerify": ["1. Open TradingView → BTCUSDT → 4h", "2. Add EMA(12/20/50/200), RSI(14), MACD(12,26,9)", "..."],
   "warnings": ["Current candle is 62% complete — values will change at close"]
 }
 ```
@@ -236,7 +257,7 @@ Debug endpoint for cross-checking computed indicators against TradingView. Retur
 
 ```json
 ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "AVAXUSDT", "..."]
-["15m", "1h", "4h", "1d"]
+["15m", "1h", "4h", "1d", "1w"]
 ```
 
 50 symbols are configured by default, organized by category in `lib/config.ts`:
@@ -260,7 +281,7 @@ seed    = SMA of first `period` candles
 EMA[i]  = price[i] * k + EMA[i-1] * (1 - k)
 ```
 
-Used: EMA-20, EMA-50, EMA-200 for trend classification.
+Used: EMA-12 as a short-term slope proxy, plus EMA-20 / EMA-50 / EMA-200 for trend classification and alignment.
 
 ### RSI — Wilder's Smoothing (RMA), period = 14
 
@@ -326,6 +347,7 @@ The sidebar shows your personal watchlist with live prices and 24h change, updat
 - Click any symbol to switch the analysis to it
 - Hover a symbol to reveal the **×** button and remove it from the watchlist
 - Favorites are saved in `localStorage` and persist across sessions
+- The ★ scanner remains a **local timeframe** ranking: it uses the currently selected dropdown timeframe and the local `Decision` score, not `GlobalDecision`
 
 **The star ★** appears on the symbol with the best setup at the current timeframe:
 - Green ★ → best **long** setup (highest score with UP signal)
@@ -384,25 +406,48 @@ The **distance to high/low** (`To High` / `To Low`) shows how much room price ha
 
 **Where:** third card on the left.
 
-The table shows EMA stack alignment across all four timeframes (15m, 1h, 4h, 1d):
+The table shows EMA structure across all five timeframes (`15m`, `1h`, `4h`, `1d`, `1w`).
+It now includes:
+
+- **EMA 12** — short-term slope proxy
+- **EMA 20 / 50 / 200** — structure stack
+- **RSI / Volume** per timeframe
+- **Alignment** — bullish, bearish, or sideways
+- **MTF consensus footer** — weighted score, directional bar, action badge, and summary
 
 | Alignment | Meaning |
 |-----------|---------|
-| **Bullish** (green dot) | EMA 20 > EMA 50 > EMA 200 on that timeframe |
-| **Bearish** (red dot) | EMA 20 < EMA 50 < EMA 200 on that timeframe |
-| **Sideways** (yellow dot) | EMAs are mixed — no clear order |
+| **Bullish** (green dot) | EMA 20 > EMA 50 > EMA 200 and EMA 12 > EMA 20 |
+| **Bearish** (red dot) | EMA 20 < EMA 50 < EMA 200 and EMA 12 < EMA 20 |
+| **Sideways** (yellow dot) | Structure or slope is mixed |
 
-**How to use it:** count how many timeframes agree. 3 or 4 bullish = strong trend. 2/4 = mixed, reduce confidence. 1/4 or 0/4 = no directional edge.
+The consensus footer uses hierarchical weights:
 
-The RSI and Volume columns per timeframe let you spot divergences — e.g., price making higher highs while RSI weakens across multiple timeframes is a warning sign.
+- `1w` = 40
+- `1d` = 25
+- `4h` = 15
+- `1h` = 12
+- `15m` = 8
+
+This prevents lower timeframes from overwhelming the structural bias of higher ones.
+
+The action badge summarizes what the engine thinks about the market:
+
+- **Bom para longs** — `LONG_BIAS`
+- **Bom para shorts** — `SHORT_BIAS`
+- **Aguardar** — no actionable directional bias
+
+The RSI and Volume columns still help spot divergences — e.g. higher highs with weakening RSI across multiple timeframes is a warning sign.
 
 ---
 
-### 4. Decision Logic — the 5-step checklist + score breakdown
+### 4. Decision Logic — local timeframe diagnosis
 
 **Where:** top-right card.
 
-Every trade setup passes through 5 filters. Each returns a status and contributes a weighted score:
+This card is **diagnostic**, not the final signal. It changes with the dropdown timeframe and helps you inspect the selected context in detail.
+
+It now runs a **6-step local checklist**:
 
 | Icon | Status | Meaning |
 |------|--------|---------|
@@ -410,64 +455,71 @@ Every trade setup passes through 5 filters. Each returns a status and contribute
 | ⚠ | Warn (yellow) | Marginal — proceed with reduced size |
 | ✗ | Bad (red) | Filter failed — significant headwind |
 
-**The 5 filters and their weight in the 0–100 score:**
+**The 6 timeline steps:**
+
+| # | Step | What it checks |
+|---|------|----------------|
+| 1 | **Trend Alignment** | Whether the selected timeframe agrees with weighted MTF direction |
+| 2 | **Alinhamento MTF** | HTF vs LTF conflict status and consensus summary |
+| 3 | **Regime** | Expansion vs equilibrium |
+| 4 | **Momentum** | RSI confirmation / excess |
+| 5 | **Position** | Whether price is in a tradable part of the range |
+| 6 | **Volume** | Participation / confirmation |
+
+**Score Breakdown (still 0–100) uses 5 weighted dimensions:**
 
 | # | Filter | Max pts | Scoring |
 |---|--------|---------|---------|
-| 1 | **Trend Alignment** | 30 | 4/4 TFs aligned = 30, 3/4 = 22, 2/4 = 12, 1/4 = 5, sideways = 0 |
+| 1 | **Trend Alignment** | 30 | Weighted consensus in active trend direction: `>= 60 = 30`, `>= 35 = 22`, `>= 15 = 12`, `> 0 = 5` |
 | 2 | **Regime** | 20 | Expansion = 20, Equilibrium = 10 |
 | 3 | **Momentum** | 15 | RSI 45–65 = 15, 35–45 or 65–75 = 10, 25–35 or 75–85 = 5, extreme = 0 |
 | 4 | **Position** | 20 | Range extreme (< 25% or > 75%) = 20, mid-approach = 12, mid-range 40–60% = 0 |
 | 5 | **Volume** | 15 | ≥ 130% avg = 15, ≥ 100% = 10, ≥ 70% = 5, < 70% = 0 |
 
-The **Score Breakdown** bars are displayed at the bottom of the card, showing per-dimension contribution and total out of 100.
-
-> **Rule #3:** A HIGH CONVICTION signal requires a total score ≥ 65. Below that = LOW CONVICTION — smaller size or no trade.
+The chip at the top of the card shows which timeframe you are diagnosing, so it is clear this panel is contextual to the dropdown.
 
 ---
 
-### 5. Current Signal — the final verdict
+### 5. Current Signal — stable global decision
 
 **Where:** bottom-right card.
 
-| Signal | Conviction | Condition |
-|--------|-----------|-----------|
-| **UP** HIGH CONVICTION | ≥3 checks OK, no fails | Trend up + Expansion + RSI healthy + price not mid-range |
-| **UP** LOW CONVICTION | Bullish setup with caveats | Some checks warn or fail |
-| **DOWN** HIGH CONVICTION | ≥3 checks OK, no fails | Trend down + Expansion + RSI healthy + price not mid-range |
-| **DOWN** LOW CONVICTION | Bearish setup with caveats | Some checks warn or fail |
-| **WAIT** NO TRADE | Auto-blocked | Equilibrium + price in mid-range (40–60%) |
-| **WAIT** LOW CONVICTION | Mixed signals | No clear trend or regime alignment |
+This card is now driven by **GlobalDecision**, not by the selected dropdown timeframe.
+The dropdown can change the chart and the diagnosis cards, but it does **not** change the main signal.
 
-The **Confidence Score (0–100)** is not a probability — it is a relative strength indicator. It is computed as the sum of five weighted dimensions (Trend 30 + Regime 20 + Position 20 + Momentum 15 + Volume 15). A score of 85 means all filters aligned cleanly. A score of 45 means the setup exists but has meaningful headwinds.
+The card combines:
 
-Reference scale:
-- `0` = **NO TRADE** (auto-blocked: Equilibrium + mid-range)
-- `< 40` = **WAIT / LOW CONVICTION** (multiple headwinds) → red banner **DO NOT TRADE**
-- `40–64` = **LOW CONVICTION** (directional setup with caveats) → yellow banner **Reduce size**
-- `≥ 65` = **HIGH CONVICTION** (most filters aligned)
-- `100` = perfect setup (all five dimensions maxed)
+- **Bias** — `LONG`, `SHORT`, or `NONE`
+- **State** — `WAIT`, `WATCH`, or `READY`
+- **Execution TF** — fixed to `1h`
+- **Position size** — `0%`, `25%`, `50%`, or `100%`
+- **Reasons** — consensus summary first, then execution-TF-specific constraints
 
-#### Anti-Overtrading Guard
+| State | Bias | Meaning |
+|-------|------|---------|
+| **WAIT** | `NONE` | No global bias, weak consensus, or high conflict without a valid range-fade exception |
+| **WATCH** | `LONG` / `SHORT` | Directional bias exists, but `1h` entry conditions are poor (mid-range or RSI extreme) |
+| **WATCH** | `NONE` | High-conflict range-fade exception in equilibrium near a range extreme |
+| **READY** | `LONG` / `SHORT` | Global bias is clear and the `1h` execution context is acceptable |
 
-The card shows a colored warning banner based on the score:
+The label shown beside the state is driven by conviction:
 
-| Score | Banner | Meaning |
-|-------|--------|---------|
-| < 40 | 🔴 **DO NOT TRADE — Context too weak** | Too many headwinds — skip this setup |
-| 40–59 | 🟡 **Reduce size — low conviction** | Setup exists but proceed with caution |
-| ≥ 60 | _(no banner)_ | Context is acceptable |
+- **HIGH CONVICTION** — `READY` with `conflictLevel = none`
+- **LOW CONVICTION** — `READY` with `conflictLevel = low`
+- **AGUARDANDO SETUP — Posição desfavorável** — bias exists, but entry quality on `1h` is not good enough
+- **NO TRADE** — no actionable bias
+- **LOW CONVICTION — Range apenas** — high-conflict equilibrium fade at a range extreme
 
-The guard is informational only — it does not block the UI.
+This means a trader can inspect `15m`, `4h`, or `1d` in the diagnostics without losing the stable execution verdict.
 
 #### Save Snapshot
 
-Click **Save Snapshot** at the bottom of the card to save the current market context to `localStorage` (`hsc_snapshots` key). After saving, an inline form appears to record your trade decision:
+Click **Save Snapshot** at the bottom of the card to save the current **global decision + execution context** to `localStorage` (`hsc_snapshots` key). After saving, an inline form appears to record your trade decision:
 
 - **Long** / **Short** / **No Trade** — attached to the snapshot immediately
 - **Skip** — saves the snapshot without a decision
 
-A **60-second duplicate guard** prevents saving the same symbol + timeframe + signal twice within a minute. All snapshot data (pair, timeframe, regime, score, RSI, volume, etc.) is stored locally for future journal/analytics features.
+A **60-second duplicate guard** prevents saving the same symbol + timeframe + signal twice within a minute. All snapshot data is stored locally for future journal/analytics features.
 
 ---
 
@@ -475,24 +527,28 @@ A **60-second duplicate guard** prevents saving the same symbol + timeframe + si
 
 **Ideal long setup:**
 - Regime: Expansion ✓
-- Trend: Uptrend — EMA 20 > 50 > 200 ✓
-- Trend Monitor: 3–4/4 timeframes bullish ✓
+- Trend: Uptrend — EMA 20 > 50 > 200 and EMA 12 > EMA 20 ✓
+- Trend Monitor: `LONG_BIAS`, positive weighted score, no HTF/LTF conflict ✓
 - Range: Price at 20–30% (support zone) or just broke > 100% (breakout) ✓
-- RSI: 50–65 (healthy, room to run) ✓
+- Execution TF (`1h`): price position good, RSI 50–65 ✓
 - MACD Histogram: positive and widening ✓
-- Decision Logic: 4/4 OK → **UP / HIGH CONVICTION**
+- Global Decision: **LONG / READY / HIGH CONVICTION**
 
 **Stay out scenario:**
-- Regime: Equilibrium
-- Range: 50% (mid-range)
-- Decision Logic: Position = bad, Regime = warn
-- Signal: **WAIT / NO TRADE** — the tool blocks the trade automatically
+- Consensus: weak or conflicting
+- Execution TF: mid-range or structurally poor
+- Global Decision: **NONE / WAIT / NO TRADE**
 
-**Wait for confirmation:**
-- Regime: Expansion but Trend = Sideways
-- Trend Monitor: 2/4 bullish, 2/4 sideways
-- RSI: 72 (approaching overbought)
-- Signal: **WAIT / LOW CONVICTION** — setup exists but not clean enough
+**Watch but not ready:**
+- Consensus: `LONG_BIAS`
+- Execution TF (`1h`): mid-range or RSI overbought
+- Global Decision: **LONG / WATCH / AGUARDANDO SETUP — Posição desfavorável**
+
+**High-conflict range fade:**
+- HTF bearish, LTF bullish (or the opposite)
+- Market in `equilibrium`
+- Execution TF near range extreme
+- Global Decision: **NONE / WATCH / LOW CONVICTION — Range apenas**
 
 ---
 
@@ -560,7 +616,7 @@ curl "http://localhost:3000/api/validate?symbol=BTCUSDT&timeframe=4h" | jq .
 
 The response includes the last closed candle OHLCV, all indicator values, candle progress %, and explicit warnings if anything looks off (e.g. EMA seed depth, partial candle).
 
-Compare `lastClosed` + `computed` values against TradingView with EMA(20/50/200), RSI(14), MACD(12,26,9), and Volume MA(20) enabled.
+Compare `lastClosed` + `computed` values against TradingView with EMA(12/20/50/200), RSI(14), MACD(12,26,9), and Volume MA(20) enabled.
 
 **Expected accuracy with 500 candles:**
 - EMA(200): within ±0.3% of TradingView
@@ -572,11 +628,12 @@ Compare `lastClosed` + `computed` values against TradingView with EMA(20/50/200)
 
 ## Engineering Notes
 
-- **Cache:** each symbol/timeframe pair is cached in-memory for 60s. The UI auto-refreshes on the same interval. Timeframe switching is instant (served from cache, no new request).
+- **Cache and refresh:** each symbol/timeframe pair is cached in-memory for 60s. On symbol change the app reloads all five timeframes; switching only the dropdown timeframe is instant because it reuses the in-memory snapshot already loaded for that symbol.
+- **Signal architecture:** `CurrentSignalCard` is driven by `computeGlobalDecision(rows, executionCtx)` with a fixed `1h` execution timeframe. `DecisionLogicCard`, `RegimeHeroCard`, `RangePositionCard`, and the chart remain local to the selected dropdown timeframe.
 - **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
 - **Batch chunking:** `/api/context` batch mode processes up to 500 symbols in chunks of 50 to avoid overwhelming Binance on cold start. After the 60s cache warms up, subsequent scans are served entirely from memory.
-- **Watchlist:** favorites are persisted in `localStorage`. Ticker prices refresh every 30s via `/api/ticker` (lightweight — no candles fetched). Best-setup star scans all configured symbols every 60s in 50-symbol chunks.
-- **Tests:** 52 unit tests covering EMA, RSI, MACD, volume normalization, market state classification, and the full decision engine (including per-dimension volume scoring).
+- **Watchlist:** favorites are persisted in `localStorage`. Ticker prices refresh every 30s via `/api/ticker` (lightweight — no candles fetched). The best-setup star scans all configured symbols every 60s in 50-symbol chunks using the active dropdown timeframe and the local `Decision` engine.
+- **Tests:** unit tests cover EMA, RSI, MACD, volume normalization, market state classification, weighted MTF consensus, local decision scoring, conflict overrides, and `computeGlobalDecision`.
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
 - **Journal / snapshots:** `lib/journal.ts` provides client-side localStorage helpers (`saveSnapshot`, `getSnapshots`, `updateSnapshot`, `deleteSnapshot`, `exportSnapshots`). All snapshot I/O goes through these helpers — localStorage is never called directly from components. A 60s duplicate guard prevents accidental double-saves.
 
