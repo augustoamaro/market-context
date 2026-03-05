@@ -25,7 +25,7 @@ export const SYMBOLS = [
   "LTCUSDT", "JUPUSDT", "PYTHUSDT", "ENAUSDT",
 ];
 
-export const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
+export const TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 
 export const BINANCE_BASE_URL =
   process.env.BINANCE_BASE_URL ?? "https://api.binance.com";

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { MarketContext, MultiTFRow } from "@/types/market";
-import { computeDecision, deriveAlignment } from "@/lib/decision";
+import { computeDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
 import Header from "./components/Header";
 import RegimeHeroCard from "./components/RegimeHeroCard";
 import RangePositionCard from "./components/RangePositionCard";
@@ -13,7 +13,7 @@ import CurrentSignalCard from "./components/CurrentSignalCard";
 import CandleChart from "./components/CandleChart";
 import Sidebar from "./components/Sidebar";
 
-const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d"];
+const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 const REFRESH_INTERVAL = 60_000;
 
 async function fetchContext(symbol: string, timeframe: string): Promise<MarketContext> {
@@ -28,12 +28,13 @@ async function fetchContext(symbol: string, timeframe: string): Promise<MarketCo
 function contextToMultiTFRow(ctx: MarketContext): MultiTFRow {
   return {
     timeframe: ctx.timeframe,
+    ema12: ctx.ema12,
     ema20: ctx.ema20,
     ema50: ctx.ema50,
     ema200: ctx.ema200,
     rsi14: ctx.rsi14,
     volumeRatioX: ctx.volumeRatioPct / 100,
-    alignment: deriveAlignment(ctx.ema20, ctx.ema50, ctx.ema200),
+    alignment: deriveAlignment(ctx.ema12, ctx.ema20, ctx.ema50, ctx.ema200),
   };
 }
 
@@ -58,7 +59,10 @@ export default function DashboardPage() {
       );
       const contexts = settled
         .filter((r): r is PromiseFulfilledResult<MarketContext> => r.status === "fulfilled")
-        .map((r) => r.value);
+        .map((r) => r.value)
+        .sort(
+          (a, b) => ALL_TIMEFRAMES.indexOf(a.timeframe) - ALL_TIMEFRAMES.indexOf(b.timeframe)
+        );
 
       if (contexts.length === 0) throw new Error("All timeframes failed to load");
 
@@ -87,7 +91,8 @@ export default function DashboardPage() {
     setActiveCtx(match ?? allContexts[0]);
   }, [timeframe, allContexts]);
 
-  const decision = activeCtx ? computeDecision(activeCtx, allRows) : null;
+  const consensus = allRows.length > 0 ? computeMultiTFConsensus(allRows) : null;
+  const decision = activeCtx && consensus ? computeDecision(activeCtx, allRows, consensus) : null;
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -135,6 +140,7 @@ export default function DashboardPage() {
                 <motion.div variants={itemVariants}>
                   <TrendMonitorCard
                     rows={allRows}
+                    consensus={consensus}
                     loading={loading}
                     error={error}
                     activeTimeframe={timeframe}

@@ -4,6 +4,8 @@ export type Alignment = "bullish" | "bearish" | "sideways";
 export type Signal = "UP" | "DOWN" | "WAIT";
 export type ConvictionLabel = "HIGH CONVICTION" | "LOW CONVICTION" | "NO TRADE";
 export type StepStatus = "ok" | "warn" | "bad";
+export type ConsensusDirection = "bullish" | "bearish" | "mixed";
+export type ConflictLevel = "none" | "low" | "high";
 
 export interface MarketContext {
   symbol: string;
@@ -16,6 +18,7 @@ export interface MarketContext {
   pricePositionPct: number;
   rangeHigh: number;
   rangeLow: number;
+  ema12: number;
   ema20: number;
   ema50: number;
   ema200: number;
@@ -29,12 +32,22 @@ export interface MarketContext {
 
 export interface MultiTFRow {
   timeframe: string;
+  ema12: number;
   ema20: number;
   ema50: number;
   ema200: number;
   rsi14: number;
   volumeRatioX: number;
   alignment: Alignment;
+}
+
+export interface MultiTFConsensus {
+  weightedScore: number;
+  direction: ConsensusDirection;
+  conflictLevel: ConflictLevel;
+  htfBias: ConsensusDirection;
+  ltfBias: ConsensusDirection;
+  summary: string;
 }
 
 export interface DecisionStep {
@@ -60,6 +73,7 @@ export interface Decision {
   scoreBreakdown: ScoreBreakdown;
   reasons: string[];
   steps: DecisionStep[];
+  consensus: MultiTFConsensus;
 }
 
 export interface ContextSnapshot {

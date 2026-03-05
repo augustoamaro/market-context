@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Star, X, Plus } from "lucide-react";
 import { SYMBOLS } from "@/lib/config";
-import { computeDecision, deriveAlignment } from "@/lib/decision";
+import { computeDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
 import { MarketContext, Signal } from "@/types/market";
 import { formatPrice } from "@/lib/format";
 
@@ -47,7 +47,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: SidebarProps) {
-  const [favorites, setFavorites] = useState<string[]>(DEFAULT_FAVORITES);
+  const [favorites, setFavorites] = useState<string[]>(() => getFavorites());
   const [ticker, setTicker] = useState<Record<string, TickerEntry>>({});
   const [topSetup, setTopSetup] = useState<TopSetup | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -55,11 +55,6 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
 
   const tickerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    setFavorites(getFavorites());
-  }, []);
 
   // Keyboard shortcut ⌘K / Escape
   useEffect(() => {
@@ -93,10 +88,17 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
   }, []);
 
   useEffect(() => {
-    loadTicker(favorites);
+    const initialLoad = setTimeout(() => {
+      void loadTicker(favorites);
+    }, 0);
     if (tickerTimerRef.current) clearInterval(tickerTimerRef.current);
-    tickerTimerRef.current = setInterval(() => loadTicker(favorites), TICKER_REFRESH_MS);
-    return () => { if (tickerTimerRef.current) clearInterval(tickerTimerRef.current); };
+    tickerTimerRef.current = setInterval(() => {
+      void loadTicker(favorites);
+    }, TICKER_REFRESH_MS);
+    return () => {
+      clearTimeout(initialLoad);
+      if (tickerTimerRef.current) clearInterval(tickerTimerRef.current);
+    };
   }, [favorites, loadTicker]);
 
   // Scan all symbols in chunks to find the best setup
@@ -112,14 +114,15 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
         for (const ctx of contexts) {
           const row = {
             timeframe: ctx.timeframe,
+            ema12: ctx.ema12,
             ema20: ctx.ema20,
             ema50: ctx.ema50,
             ema200: ctx.ema200,
             rsi14: ctx.rsi14,
             volumeRatioX: ctx.volumeRatioPct / 100,
-            alignment: deriveAlignment(ctx.ema20, ctx.ema50, ctx.ema200),
+            alignment: deriveAlignment(ctx.ema12, ctx.ema20, ctx.ema50, ctx.ema200),
           };
-          const decision = computeDecision(ctx, [row]);
+          const decision = computeDecision(ctx, [row], computeMultiTFConsensus([row]));
           if (
             decision.signal !== "WAIT" &&
             decision.confidenceScore >= MIN_SCORE_FOR_STAR &&
@@ -134,10 +137,15 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
   }, [timeframe]);
 
   useEffect(() => {
-    scanBestSetup();
+    const initialScan = setTimeout(() => {
+      void scanBestSetup();
+    }, 0);
     if (scanTimerRef.current) clearInterval(scanTimerRef.current);
     scanTimerRef.current = setInterval(scanBestSetup, SCAN_REFRESH_MS);
-    return () => { if (scanTimerRef.current) clearInterval(scanTimerRef.current); };
+    return () => {
+      clearTimeout(initialScan);
+      if (scanTimerRef.current) clearInterval(scanTimerRef.current);
+    };
   }, [scanBestSetup]);
 
   const addFavorite = (sym: string) => {

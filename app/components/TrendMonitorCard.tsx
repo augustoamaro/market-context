@@ -1,9 +1,10 @@
-import { MultiTFRow, Alignment } from "@/types/market";
+import { Alignment, MultiTFConsensus, MultiTFRow } from "@/types/market";
 import { formatVolumeX } from "@/lib/format";
 import CardSkeleton from "./Skeleton";
 
 interface Props {
   rows: MultiTFRow[];
+  consensus: MultiTFConsensus | null;
   loading: boolean;
   error: string | null;
   activeTimeframe: string;
@@ -15,13 +16,37 @@ const alignmentStyles: Record<Alignment, { dot: string; text: string }> = {
   sideways: { dot: "bg-warn", text: "text-text-muted" },
 };
 
+const consensusStyles = {
+  none: {
+    shell: "border-success/20 bg-success/10",
+    text: "text-success",
+    bar: "bg-success",
+  },
+  low: {
+    shell: "border-warn/20 bg-warn/10",
+    text: "text-warn",
+    bar: "bg-warn",
+  },
+  high: {
+    shell: "border-danger/20 bg-danger/10",
+    text: "text-danger",
+    bar: "bg-danger",
+  },
+} as const;
+
 function formatEma(v: number): string {
   if (v >= 1000) return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
   return v.toFixed(2);
 }
 
-export default function TrendMonitorCard({ rows, loading, error, activeTimeframe }: Props) {
-  if (loading) return <CardSkeleton rows={4} height="h-52" />;
+export default function TrendMonitorCard({
+  rows,
+  consensus,
+  loading,
+  error,
+  activeTimeframe,
+}: Props) {
+  if (loading) return <CardSkeleton rows={5} height="h-64" />;
   if (error) {
     return (
       <div className="bento-card rounded-xl p-6 text-[13px] text-danger/80">
@@ -30,8 +55,14 @@ export default function TrendMonitorCard({ rows, loading, error, activeTimeframe
     );
   }
 
+  const score = consensus?.weightedScore ?? 0;
+  const magnitude = Math.min(Math.abs(score) / 2, 50);
+  const barLeft = score >= 0 ? 50 : 50 - magnitude;
+  const signedScore = score > 0 ? `+${score}` : `${score}`;
+  const consensusStyle = consensus ? consensusStyles[consensus.conflictLevel] : consensusStyles.low;
+
   return (
-    <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8 flex flex-col justify-between min-h-[280px]">
+    <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8 flex flex-col justify-between min-h-[340px]">
       <div className="mb-6 pl-1">
         <h2 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">Trend Monitor</h2>
       </div>
@@ -40,19 +71,30 @@ export default function TrendMonitorCard({ rows, loading, error, activeTimeframe
         <table className="w-full text-left border-collapse">
           <thead>
             <tr>
-              {["Timeframe", "20 Ema", "50 Ema", "200 Ema", "Rsi (14)", "Vol Ratio", "Alignment"].map(
-                (col, i) => (
-                  <th
-                    key={col}
-                    className={`pb-4 text-[11px] font-medium text-text-muted border-b border-white/5 ${i === 1 || i === 2 || i === 3 ? "hidden sm:table-cell text-right pr-6" :
-                        i === 4 || i === 5 ? "text-right pr-6" :
-                          i === 6 ? "text-right pr-2" : "pl-2"
-                      }`}
-                  >
-                    {col}
-                  </th>
-                )
-              )}
+              <th className="pb-4 pl-2 text-[11px] font-medium text-text-muted border-b border-white/5">
+                Timeframe
+              </th>
+              <th className="hidden sm:table-cell pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                12 Ema
+              </th>
+              <th className="hidden sm:table-cell pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                20 Ema
+              </th>
+              <th className="hidden sm:table-cell pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                50 Ema
+              </th>
+              <th className="hidden sm:table-cell pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                200 Ema
+              </th>
+              <th className="pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                Rsi (14)
+              </th>
+              <th className="pb-4 pr-6 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                Vol Ratio
+              </th>
+              <th className="pb-4 pr-2 text-right text-[11px] font-medium text-text-muted border-b border-white/5">
+                Alignment
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -74,9 +116,18 @@ export default function TrendMonitorCard({ rows, loading, error, activeTimeframe
                       </span>
                     </span>
                   </td>
-                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">{formatEma(row.ema20)}</td>
-                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">{formatEma(row.ema50)}</td>
-                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">{formatEma(row.ema200)}</td>
+                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">
+                    {formatEma(row.ema12)}
+                  </td>
+                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">
+                    {formatEma(row.ema20)}
+                  </td>
+                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">
+                    {formatEma(row.ema50)}
+                  </td>
+                  <td className="py-4 pr-6 text-right font-mono text-[13px] text-text-muted hidden sm:table-cell">
+                    {formatEma(row.ema200)}
+                  </td>
                   <td className={`py-4 pr-6 text-right font-mono text-[13px] ${row.rsi14 > 70 ? "text-danger" : row.rsi14 < 30 ? "text-success" : "text-text-muted"
                     }`}>
                     {row.rsi14.toFixed(1)}
@@ -99,6 +150,38 @@ export default function TrendMonitorCard({ rows, loading, error, activeTimeframe
           </tbody>
         </table>
       </div>
+
+      {consensus && (
+        <div className={`mt-6 rounded-xl border px-4 py-4 ${consensusStyle.shell}`}>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+              MTF Consensus
+            </span>
+            <span className={`font-mono text-[12px] ${consensusStyle.text}`}>
+              {signedScore}
+            </span>
+          </div>
+
+          <p className="mt-2 text-[12px] leading-relaxed text-text">
+            {consensus.summary}
+          </p>
+
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-text-muted">
+              <span>Bearish</span>
+              <span>{consensus.direction}</span>
+              <span>Bullish</span>
+            </div>
+            <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+              <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
+              <div
+                className={`absolute inset-y-0 rounded-full ${consensusStyle.bar}`}
+                style={{ left: `${barLeft}%`, width: `${magnitude}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

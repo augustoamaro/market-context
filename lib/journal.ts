@@ -48,7 +48,7 @@ export function exportSnapshots(): string {
   const snapshots = read();
   if (snapshots.length === 0) return "";
 
-  const headers = [
+  const headers: Array<keyof ContextSnapshot> = [
     "id", "timestamp", "pair", "timeframe", "regime", "trend",
     "rangePosition", "rsi", "macdHistogram", "volumeRatioPct",
     "confidenceScore", "signal", "label", "decision", "result", "notes",
@@ -62,7 +62,7 @@ export function exportSnapshots(): string {
   };
 
   const rows = snapshots.map((s) =>
-    headers.map((h) => escape((s as Record<string, unknown>)[h])).join(",")
+    headers.map((h) => escape(s[h])).join(",")
   );
 
   return [headers.join(","), ...rows].join("\n");

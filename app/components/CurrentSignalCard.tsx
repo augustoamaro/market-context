@@ -116,6 +116,12 @@ export default function CurrentSignalCard({ decision, ctx, loading }: Props) {
           </div>
         </div>
 
+        {decision.consensus.conflictLevel === "high" && (
+          <div className="mb-6 mx-1 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-[11px] font-medium text-danger">
+            HTF vs LTF Conflict
+          </div>
+        )}
+
         {/* Progress track */}
         <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden mx-1">
           <div

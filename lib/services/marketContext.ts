@@ -27,6 +27,7 @@ export async function buildMarketContext(
   const close24hAgo = idx24h > 0 ? candles[idx24h].close : candles[0].close;
   const priceChangePct = ((price - close24hAgo) / close24hAgo) * 100;
 
+  const ema12  = ema(closes, 12);
   const ema20  = ema(closes, 20);
   const ema50  = ema(closes, 50);
   const ema200 = ema(closes, 200);
@@ -56,6 +57,7 @@ export async function buildMarketContext(
     pricePositionPct: Math.round(range.pricePositionPct),
     rangeHigh:        round(range.high, 2),
     rangeLow:         round(range.low, 2),
+    ema12:            round(ema12, 2),
     ema20:            round(ema20, 2),
     ema50:            round(ema50, 2),
     ema200:           round(ema200, 2),
