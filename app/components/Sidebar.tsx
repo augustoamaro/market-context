@@ -47,7 +47,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: SidebarProps) {
-  const [favorites, setFavorites] = useState<string[]>(() => getFavorites());
+  const [favorites, setFavorites] = useState<string[]>(DEFAULT_FAVORITES);
   const [ticker, setTicker] = useState<Record<string, TickerEntry>>({});
   const [topSetup, setTopSetup] = useState<TopSetup | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -55,6 +55,24 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
 
   const tickerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const syncFavorites = setTimeout(() => {
+      const storedFavorites = getFavorites();
+      setFavorites((current) => {
+        if (
+          current.length === storedFavorites.length &&
+          current.every((favorite, index) => favorite === storedFavorites[index])
+        ) {
+          return current;
+        }
+
+        return storedFavorites;
+      });
+    }, 0);
+
+    return () => clearTimeout(syncFavorites);
+  }, []);
 
   // Keyboard shortcut ⌘K / Escape
   useEffect(() => {
@@ -124,7 +142,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
           };
           const decision = computeDecision(ctx, [row], computeMultiTFConsensus([row]));
           if (
-            decision.signal !== "WAIT" &&
+            (decision.signal === "UP" || decision.signal === "DOWN") &&
             decision.confidenceScore >= MIN_SCORE_FOR_STAR &&
             (best === null || decision.confidenceScore > best.confidenceScore)
           ) {

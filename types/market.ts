@@ -1,11 +1,18 @@
 export type Trend = "up" | "down" | "sideways";
 export type MarketState = "expansion" | "equilibrium";
 export type Alignment = "bullish" | "bearish" | "sideways";
-export type Signal = "UP" | "DOWN" | "WAIT";
-export type ConvictionLabel = "HIGH CONVICTION" | "LOW CONVICTION" | "NO TRADE";
+export type Signal = "UP" | "DOWN" | "WATCH" | "WAIT";
+export type ConvictionLabel =
+  | "HIGH CONVICTION"
+  | "LOW CONVICTION"
+  | "NO TRADE"
+  | "LOW CONVICTION — Range apenas"
+  | "NO TRADE — Conflito HTF/LTF";
 export type StepStatus = "ok" | "warn" | "bad";
 export type ConsensusDirection = "bullish" | "bearish" | "mixed";
 export type ConflictLevel = "none" | "low" | "high";
+export type RecommendedAction = "LONG_BIAS" | "SHORT_BIAS" | "WAIT";
+export type PositionSizeModifier = 1 | 0.5 | 0.25;
 
 export interface MarketContext {
   symbol: string;
@@ -47,6 +54,8 @@ export interface MultiTFConsensus {
   conflictLevel: ConflictLevel;
   htfBias: ConsensusDirection;
   ltfBias: ConsensusDirection;
+  recommendedAction: RecommendedAction;
+  positionSizeModifier: PositionSizeModifier;
   summary: string;
 }
 

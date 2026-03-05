@@ -16,11 +16,14 @@ const labelStyles: Record<ConvictionLabel, { color: string }> = {
   "HIGH CONVICTION": { color: "text-success" },
   "LOW CONVICTION": { color: "text-warn" },
   "NO TRADE": { color: "text-text-muted" },
+  "LOW CONVICTION — Range apenas": { color: "text-warn" },
+  "NO TRADE — Conflito HTF/LTF": { color: "text-danger" },
 };
 
 const signalColor: Record<string, string> = {
   UP: "text-success",
   DOWN: "text-danger",
+  WATCH: "text-warn",
   WAIT: "text-text-muted",
 };
 
@@ -38,6 +41,15 @@ export default function CurrentSignalCard({ decision, ctx, loading }: Props) {
   const { color: badgeColor } = labelStyles[decision.label];
   const sigColor = signalColor[decision.signal] ?? "text-text";
   const score = decision.confidenceScore;
+  const suggestedSizePct = Math.round(decision.consensus.positionSizeModifier * 100);
+  const showSizeHint =
+    decision.signal !== "WAIT" && decision.consensus.positionSizeModifier < 1;
+  const directionalBias =
+    decision.consensus.recommendedAction === "LONG_BIAS"
+      ? { text: "Bom para longs: ✅", cls: "text-success" }
+      : decision.consensus.recommendedAction === "SHORT_BIAS"
+        ? { text: "Bom para shorts: ✅", cls: "text-danger" }
+        : null;
 
   // P6 — Anti-overtrading guard
   const guard =
@@ -116,9 +128,22 @@ export default function CurrentSignalCard({ decision, ctx, loading }: Props) {
           </div>
         </div>
 
-        {decision.consensus.conflictLevel === "high" && (
-          <div className="mb-6 mx-1 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-[11px] font-medium text-danger">
-            HTF vs LTF Conflict
+        {showSizeHint && (
+          <div className="mb-6 mx-1 rounded-lg border border-warn/25 bg-warn/10 px-3 py-2">
+            <div className="text-[11px] font-medium text-warn">
+              Tamanho sugerido: {suggestedSizePct}%
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              {decision.consensus.conflictLevel === "high"
+                ? "Conflito HTF/LTF detectado"
+                : "Contexto parcial entre timeframes"}
+            </div>
+          </div>
+        )}
+
+        {directionalBias && (
+          <div className={`mb-6 mx-1 text-[12px] font-medium ${directionalBias.cls}`}>
+            {directionalBias.text}
           </div>
         )}
 

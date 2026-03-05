@@ -18,8 +18,8 @@ const alignmentStyles: Record<Alignment, { dot: string; text: string }> = {
 
 const consensusStyles = {
   none: {
-    shell: "border-success/20 bg-success/10",
-    text: "text-success",
+    shell: "border-white/8 bg-white/[0.03]",
+    text: "text-text-muted",
     bar: "bg-success",
   },
   low: {
@@ -32,6 +32,18 @@ const consensusStyles = {
     text: "text-danger",
     bar: "bg-danger",
   },
+} as const;
+
+const actionStyles = {
+  LONG_BIAS: "bg-success/10 text-success border-success/20",
+  SHORT_BIAS: "bg-danger/10 text-danger border-danger/20",
+  WAIT: "bg-white/5 text-text-muted border-white/10",
+} as const;
+
+const actionLabels = {
+  LONG_BIAS: "Bom para longs",
+  SHORT_BIAS: "Bom para shorts",
+  WAIT: "Aguardar",
 } as const;
 
 function formatEma(v: number): string {
@@ -60,6 +72,8 @@ export default function TrendMonitorCard({
   const barLeft = score >= 0 ? 50 : 50 - magnitude;
   const signedScore = score > 0 ? `+${score}` : `${score}`;
   const consensusStyle = consensus ? consensusStyles[consensus.conflictLevel] : consensusStyles.low;
+  const actionClass = consensus ? actionStyles[consensus.recommendedAction] : actionStyles.WAIT;
+  const actionLabel = consensus ? actionLabels[consensus.recommendedAction] : actionLabels.WAIT;
 
   return (
     <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8 flex flex-col justify-between min-h-[340px]">
@@ -153,16 +167,21 @@ export default function TrendMonitorCard({
 
       {consensus && (
         <div className={`mt-6 rounded-xl border px-4 py-4 ${consensusStyle.shell}`}>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
               MTF Consensus
             </span>
-            <span className={`font-mono text-[12px] ${consensusStyle.text}`}>
-              {signedScore}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${actionClass}`}>
+                {actionLabel}
+              </span>
+              <span className={`font-mono text-[12px] ${consensusStyle.text}`}>
+                {signedScore}
+              </span>
+            </div>
           </div>
 
-          <p className="mt-2 text-[12px] leading-relaxed text-text">
+          <p className={`mt-2 text-[12px] leading-relaxed ${consensusStyle.text}`}>
             {consensus.summary}
           </p>
 
@@ -175,7 +194,7 @@ export default function TrendMonitorCard({
             <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
               <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
               <div
-                className={`absolute inset-y-0 rounded-full ${consensusStyle.bar}`}
+                className={`absolute inset-y-0 rounded-full ${consensusStyle.bar} ${consensus.conflictLevel === "high" ? "animate-pulse" : ""}`}
                 style={{ left: `${barLeft}%`, width: `${magnitude}%` }}
               />
             </div>

@@ -7,136 +7,174 @@ import {
   MarketContext,
   MultiTFConsensus,
   MultiTFRow,
+  PositionSizeModifier,
+  RecommendedAction,
   ScoreBreakdown,
   Signal,
   StepStatus,
 } from "@/types/market";
 
-const TIMEFRAME_WEIGHTS: Record<string, number> = {
+const TF_WEIGHTS: Record<string, number> = {
   "1w": 40,
-  "1d": 30,
+  "1d": 25,
   "4h": 15,
-  "1h": 10,
-  "15m": 5,
+  "1h": 12,
+  "15m": 8,
 };
 
+const SUM_WEIGHTS = 100;
+
+const ALIGNMENT_SCORE: Record<Alignment, number> = {
+  bullish: 1,
+  bearish: -1,
+  sideways: 0,
+};
+
+function clampScore(value: number): number {
+  return Math.max(-100, Math.min(100, Math.round(value)));
+}
+
 function formatSigned(value: number): string {
-  if (value > 0) return `+${value}`;
-  return `${value}`;
+  return value > 0 ? `+${value}` : `${value}`;
 }
 
-function alignmentValue(alignment: Alignment): number {
-  if (alignment === "bullish") return 1;
-  if (alignment === "bearish") return -1;
-  return 0;
-}
+function computeBias(
+  rows: MultiTFRow[],
+  timeframes: string[]
+): MultiTFConsensus["direction"] {
+  const subset = rows.filter((row) => timeframes.includes(row.timeframe));
+  if (subset.length === 0) return "mixed";
 
-function weightedScore(rows: MultiTFRow[]): number {
-  const totalWeight = rows.reduce(
-    (sum, row) => sum + (TIMEFRAME_WEIGHTS[row.timeframe] ?? 0),
+  const subWeights = subset.reduce(
+    (sum, row) => sum + (TF_WEIGHTS[row.timeframe] ?? 0),
     0
   );
-
-  if (totalWeight === 0) return 0;
-
-  const total = rows.reduce(
-    (sum, row) => sum + alignmentValue(row.alignment) * (TIMEFRAME_WEIGHTS[row.timeframe] ?? 0),
+  const subRaw = subset.reduce(
+    (sum, row) => sum + ALIGNMENT_SCORE[row.alignment] * (TF_WEIGHTS[row.timeframe] ?? 0),
     0
   );
+  const subScore = subWeights > 0 ? (subRaw / subWeights) * 100 : 0;
 
-  return Math.max(-100, Math.min(100, Math.round((total / totalWeight) * 100)));
-}
-
-function directionFromScore(score: number): MultiTFConsensus["direction"] {
-  if (score > 0) return "bullish";
-  if (score < 0) return "bearish";
+  if (subScore >= 15) return "bullish";
+  if (subScore <= -15) return "bearish";
   return "mixed";
 }
 
-function fullyAligned(rows: MultiTFRow[]): boolean {
-  return rows.length > 0 && rows.every((row) => row.alignment === rows[0].alignment);
+function computeConflictLevel(
+  rows: MultiTFRow[],
+  htfBias: MultiTFConsensus["htfBias"],
+  ltfBias: MultiTFConsensus["ltfBias"]
+): ConflictLevel {
+  if (rows.length > 0 && rows.every((row) => row.alignment === "sideways")) {
+    return "none";
+  }
+
+  if (
+    (htfBias === "bullish" && ltfBias === "bearish") ||
+    (htfBias === "bearish" && ltfBias === "bullish")
+  ) {
+    return "high";
+  }
+
+  if (htfBias === "mixed" || ltfBias === "mixed") {
+    return "low";
+  }
+
+  return "none";
+}
+
+function computeRecommendedAction(
+  weightedScore: number,
+  conflictLevel: ConflictLevel
+): RecommendedAction {
+  if (conflictLevel === "high") return "WAIT";
+  if (weightedScore >= 35) return "LONG_BIAS";
+  if (weightedScore <= -35) return "SHORT_BIAS";
+  return "WAIT";
+}
+
+function computePositionSizeModifier(
+  conflictLevel: ConflictLevel
+): PositionSizeModifier {
+  if (conflictLevel === "none") return 1;
+  if (conflictLevel === "low") return 0.5;
+  return 0.25;
 }
 
 function buildConsensusSummary(
   rows: MultiTFRow[],
   direction: MultiTFConsensus["direction"],
   conflictLevel: ConflictLevel,
-  htfBias: MultiTFConsensus["htfBias"],
-  ltfBias: MultiTFConsensus["ltfBias"]
+  htfBias: MultiTFConsensus["htfBias"]
 ): string {
-  if (rows.length === 0) return "No timeframe data available";
+  if (rows.length === 0) return "Sem dados suficientes para consenso";
 
-  if (rows.length === 1) {
-    const [row] = rows;
-    if (row.alignment === "sideways") {
-      return `${row.timeframe} sideways — wait for clearer structure`;
-    }
-    return `${row.timeframe} ${row.alignment} — single-timeframe read`;
+  if (rows.every((row) => row.alignment === "bullish")) {
+    return "Todos os TFs alinhados bullish — alta confianca";
   }
 
-  if (conflictLevel === "high") {
-    if (htfBias === "bullish" && ltfBias === "bearish") {
-      return "HTF bullish, LTF bearish — aguardar pullback";
-    }
-    if (htfBias === "bearish" && ltfBias === "bullish") {
-      return "HTF bearish, LTF bullish — ignore countertrend bounce";
-    }
-  }
-
-  if (fullyAligned(rows) && direction === "bullish") {
-    return "All timeframes aligned bullish";
-  }
-
-  if (fullyAligned(rows) && direction === "bearish") {
-    return "All timeframes aligned bearish";
+  if (rows.every((row) => row.alignment === "bearish")) {
+    return "Todos os TFs alinhados bearish — alta confianca";
   }
 
   if (rows.every((row) => row.alignment === "sideways")) {
-    return "All timeframes sideways — wait for expansion";
+    return "Sem vies claro — mercado em transicao";
+  }
+
+  if (conflictLevel === "high") {
+    if (htfBias === "bullish") {
+      return "HTF bullish, LTF bearish — aguardar pullback";
+    }
+
+    if (htfBias === "bearish") {
+      return "HTF bearish, LTF bullish — bounce, vies continua down";
+    }
+  }
+
+  if (conflictLevel === "low") {
+    return "TFs mistos — baixa confianca, reduzir tamanho";
   }
 
   if (direction === "bullish") {
-    if (ltfBias === "mixed") return "HTF bullish, LTF mixed — wait for cleaner continuation";
-    if (htfBias === "mixed") return "Bullish bias, but higher timeframes are split";
-    return "Bullish bias with partial disagreement — size conservatively";
+    return "Vies bullish sem conflito HTF/LTF";
   }
 
   if (direction === "bearish") {
-    if (ltfBias === "mixed") return "HTF bearish, LTF mixed — wait for cleaner continuation";
-    if (htfBias === "mixed") return "Bearish bias, but higher timeframes are split";
-    return "Bearish bias with partial disagreement — size conservatively";
+    return "Vies bearish sem conflito HTF/LTF";
   }
 
-  return "Timeframes mixed — wait for clearer alignment";
+  return "Sem vies claro — mercado em transicao";
 }
 
 export function computeMultiTFConsensus(rows: MultiTFRow[]): MultiTFConsensus {
-  const weighted = weightedScore(rows);
-  const htfRows = rows.filter((row) => row.timeframe === "1w" || row.timeframe === "1d");
-  const ltfRows = rows.filter((row) => row.timeframe === "1h" || row.timeframe === "15m");
-  const htfBias = directionFromScore(weightedScore(htfRows));
-  const ltfBias = directionFromScore(weightedScore(ltfRows));
+  const raw = rows.reduce((sum, row) => {
+    const weight = TF_WEIGHTS[row.timeframe] ?? 0;
+    return sum + ALIGNMENT_SCORE[row.alignment] * weight;
+  }, 0);
 
-  let conflictLevel: ConflictLevel = "low";
-  if (
-    htfBias !== "mixed" &&
-    ltfBias !== "mixed" &&
-    htfBias !== ltfBias
-  ) {
-    conflictLevel = "high";
-  } else if (fullyAligned(rows) && rows[0]?.alignment !== "sideways") {
-    conflictLevel = "none";
-  }
+  const weightedScore = clampScore((raw / SUM_WEIGHTS) * 100);
+  const direction =
+    weightedScore >= 15
+      ? "bullish"
+      : weightedScore <= -15
+        ? "bearish"
+        : "mixed";
 
-  const direction = directionFromScore(weighted);
+  const htfBias = computeBias(rows, ["1w", "1d"]);
+  const ltfBias = computeBias(rows, ["1h", "15m"]);
+  const conflictLevel = computeConflictLevel(rows, htfBias, ltfBias);
+  const recommendedAction = computeRecommendedAction(weightedScore, conflictLevel);
+  const positionSizeModifier = computePositionSizeModifier(conflictLevel);
 
   return {
-    weightedScore: weighted,
+    weightedScore,
     direction,
     conflictLevel,
     htfBias,
     ltfBias,
-    summary: buildConsensusSummary(rows, direction, conflictLevel, htfBias, ltfBias),
+    recommendedAction,
+    positionSizeModifier,
+    summary: buildConsensusSummary(rows, direction, conflictLevel, htfBias),
   };
 }
 
@@ -158,7 +196,7 @@ function trendStep(ctx: MarketContext, consensus: MultiTFConsensus): DecisionSte
   let status: StepStatus = "warn";
   let details = `Weighted score ${formatSigned(consensus.weightedScore)}`;
 
-  if (directionalScore >= 40) {
+  if (directionalScore >= 35) {
     status = "ok";
     details = `${ctx.trend === "up" ? "Bullish" : "Bearish"} score ${formatSigned(directionalScore)}`;
   } else if (directionalScore <= 0) {
@@ -178,16 +216,12 @@ function trendStep(ctx: MarketContext, consensus: MultiTFConsensus): DecisionSte
 }
 
 function conflictStep(consensus: MultiTFConsensus): DecisionStep {
+  const statusMap = { none: "ok", low: "warn", high: "bad" } as const;
   return {
-    id: "mtf-conflict",
+    id: "mtf_conflict",
     title: "Alinhamento MTF",
-    description: "Hierarchical consensus across higher and lower timeframes",
-    status:
-      consensus.conflictLevel === "none"
-        ? "ok"
-        : consensus.conflictLevel === "low"
-          ? "warn"
-          : "bad",
+    description: "Consenso ponderado entre timeframes (HTF domina)",
+    status: statusMap[consensus.conflictLevel],
     details: consensus.summary,
   };
 }
@@ -214,7 +248,6 @@ function momentumStep(ctx: MarketContext): DecisionStep {
     status = "warn";
     details = `RSI ${ctx.rsi14.toFixed(1)} — oversold`;
   } else if (ctx.rsi14 >= 45 && ctx.rsi14 <= 65) {
-    status = "ok";
     details = `RSI ${ctx.rsi14.toFixed(1)} — healthy range`;
   }
 
@@ -277,8 +310,6 @@ function volumeStep(ctx: MarketContext): DecisionStep {
   };
 }
 
-// Weights: Trend 30, Regime 20, Position 20, Momentum 15, Volume 15.
-
 function scoreTrend(ctx: MarketContext, consensus: MultiTFConsensus): number {
   if (ctx.trend === "sideways") return 0;
 
@@ -287,8 +318,8 @@ function scoreTrend(ctx: MarketContext, consensus: MultiTFConsensus): number {
     : -consensus.weightedScore;
 
   if (directionalScore >= 60) return 30;
-  if (directionalScore >= 40) return 22;
-  if (directionalScore >= 20) return 12;
+  if (directionalScore >= 35) return 22;
+  if (directionalScore >= 15) return 12;
   if (directionalScore > 0) return 5;
   return 0;
 }
@@ -335,6 +366,51 @@ export function computeDecision(
   ];
 
   const isMidRange = ctx.pricePositionPct >= 40 && ctx.pricePositionPct <= 60;
+  const isRangeExtreme = ctx.pricePositionPct < 20 || ctx.pricePositionPct > 80;
+
+  const scoreBreakdown: ScoreBreakdown = {
+    trend: scoreTrend(ctx, consensus),
+    regime: scoreRegime(ctx),
+    position: scorePosition(ctx),
+    momentum: scoreMomentum(ctx),
+    volume: scoreVolume(ctx),
+  };
+  const confidenceScore = Math.min(
+    100,
+    scoreBreakdown.trend + scoreBreakdown.regime + scoreBreakdown.position +
+    scoreBreakdown.momentum + scoreBreakdown.volume
+  );
+
+  if (consensus.conflictLevel === "high") {
+    if (ctx.marketState === "equilibrium" && isRangeExtreme) {
+      return {
+        signal: "WATCH",
+        label: "LOW CONVICTION — Range apenas",
+        confidenceScore,
+        scoreBreakdown,
+        reasons: [
+          consensus.summary,
+          `Range em extremo (${Math.round(ctx.pricePositionPct)}%)`,
+          "Setup valido apenas como fade de range",
+        ],
+        steps,
+        consensus,
+      };
+    }
+
+    return {
+      signal: "WAIT",
+      label: "NO TRADE — Conflito HTF/LTF",
+      confidenceScore,
+      scoreBreakdown,
+      reasons: [
+        consensus.summary,
+        "Conflito HTF/LTF bloqueia setup direcional",
+      ],
+      steps,
+      consensus,
+    };
+  }
 
   if (ctx.marketState === "equilibrium" && isMidRange) {
     const zeroBreakdown: ScoreBreakdown = { trend: 0, regime: 0, position: 0, momentum: 0, volume: 0 };
@@ -353,66 +429,40 @@ export function computeDecision(
     };
   }
 
-  const scoreBreakdown: ScoreBreakdown = {
-    trend: scoreTrend(ctx, consensus),
-    regime: scoreRegime(ctx),
-    position: scorePosition(ctx),
-    momentum: scoreMomentum(ctx),
-    volume: scoreVolume(ctx),
-  };
-  const confidenceScore = Math.min(
-    100,
-    scoreBreakdown.trend + scoreBreakdown.regime + scoreBreakdown.position +
-    scoreBreakdown.momentum + scoreBreakdown.volume
-  );
+  const reasons: string[] = [];
+  const alignedLong = consensus.recommendedAction === "LONG_BIAS";
+  const alignedShort = consensus.recommendedAction === "SHORT_BIAS";
+  const hasTrendScore = scoreBreakdown.trend > 0;
 
   let signal: Signal = "WAIT";
   let label: ConvictionLabel = "LOW CONVICTION";
-  const reasons: string[] = [];
 
-  if (consensus.conflictLevel === "high") {
-    return {
-      signal: "WAIT",
-      label: "LOW CONVICTION",
-      confidenceScore,
-      scoreBreakdown,
-      reasons: [
-        consensus.summary,
-        "Higher and lower timeframes disagree",
-      ],
-      steps,
-      consensus,
-    };
-  }
-
-  if (ctx.trend === "up" && ctx.marketState === "expansion") {
+  if (ctx.trend === "up" && ctx.marketState === "expansion" && hasTrendScore) {
     signal = "UP";
-    if (confidenceScore >= 65) {
+    if (confidenceScore >= 65 && alignedLong) {
       label = "HIGH CONVICTION";
       reasons.push("Trend and regime aligned bullish");
       if (ctx.rsi14 < 70) reasons.push("RSI confirms momentum");
       if (scoreBreakdown.volume >= 10) reasons.push("Volume confirming expansion");
-      if (consensus.conflictLevel === "low") reasons.push(consensus.summary);
     } else {
       label = "LOW CONVICTION";
       reasons.push("Bullish setup with caveats");
+      if (!alignedLong) reasons.push("Consensus ainda abaixo do limiar de bias");
       if (scoreBreakdown.position === 0) reasons.push("Mid-range entry — low conviction zone");
       if (scoreBreakdown.volume === 0) reasons.push("Low volume — no confirmation");
-      if (consensus.conflictLevel === "low") reasons.push(consensus.summary);
     }
-  } else if (ctx.trend === "down" && ctx.marketState === "expansion") {
+  } else if (ctx.trend === "down" && ctx.marketState === "expansion" && hasTrendScore) {
     signal = "DOWN";
-    if (confidenceScore >= 65) {
+    if (confidenceScore >= 65 && alignedShort) {
       label = "HIGH CONVICTION";
       reasons.push("Trend and regime aligned bearish");
       if (scoreBreakdown.volume >= 10) reasons.push("Volume confirming expansion");
-      if (consensus.conflictLevel === "low") reasons.push(consensus.summary);
     } else {
       label = "LOW CONVICTION";
       reasons.push("Bearish setup with caveats");
+      if (!alignedShort) reasons.push("Consensus ainda abaixo do limiar de bias");
       if (scoreBreakdown.position === 0) reasons.push("Mid-range entry — low conviction zone");
       if (scoreBreakdown.volume === 0) reasons.push("Low volume — no confirmation");
-      if (consensus.conflictLevel === "low") reasons.push(consensus.summary);
     }
   } else {
     signal = "WAIT";
@@ -420,7 +470,10 @@ export function computeDecision(
     reasons.push("Mixed signals — wait for clearer setup");
     if (ctx.marketState === "equilibrium") reasons.push("Market in equilibrium");
     if (ctx.trend === "sideways") reasons.push("No clear trend direction");
-    if (consensus.conflictLevel !== "none") reasons.push(consensus.summary);
+  }
+
+  if (consensus.conflictLevel === "low") {
+    reasons.push(consensus.summary);
   }
 
   return { signal, label, confidenceScore, scoreBreakdown, reasons, steps, consensus };
@@ -432,11 +485,10 @@ export function deriveAlignment(
   ema50: number,
   ema200: number
 ): "bullish" | "bearish" | "sideways" {
-  if (ema20 > ema50 && ema50 > ema200) return "bullish";
-  if (ema20 < ema50 && ema50 < ema200) return "bearish";
+  const slopeUp = ema12 > ema20;
+  const slopeDown = ema12 < ema20;
 
-  if (ema20 > ema200 && ema50 > ema200 && ema12 > ema20) return "bullish";
-  if (ema20 < ema200 && ema50 < ema200 && ema12 < ema20) return "bearish";
-
+  if (ema20 > ema50 && ema50 > ema200 && slopeUp) return "bullish";
+  if (ema20 < ema50 && ema50 < ema200 && slopeDown) return "bearish";
   return "sideways";
 }
