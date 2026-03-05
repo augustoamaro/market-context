@@ -118,15 +118,24 @@ export default function DashboardPage() {
           animate="show"
           className="grid grid-cols-1 gap-6 lg:grid-cols-12"
         >
-          {/* Left column — 8/12 */}
-          <div className="space-y-6 lg:col-span-8">
+          {/* Row 1: Left column (Regime + Range) vs Right column (Decision Logic) */}
+          <div className="flex flex-col gap-6 lg:col-span-8">
             <motion.div variants={itemVariants}>
               <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
             </motion.div>
-            <motion.div variants={itemVariants}>
+            <motion.div variants={itemVariants} className="flex-1 [&>div]:h-full">
               <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
             </motion.div>
-            <motion.div variants={itemVariants}>
+          </div>
+          <div className="flex flex-col lg:col-span-4">
+            <motion.div variants={itemVariants} className="flex-1 [&>div]:h-full">
+              <DecisionLogicCard decision={decision} loading={loading} />
+            </motion.div>
+          </div>
+
+          {/* Row 2: Trend Monitor vs Current Signal */}
+          <div className="flex flex-col lg:col-span-8">
+            <motion.div variants={itemVariants} className="flex-1 [&>div]:h-full">
               <TrendMonitorCard
                 rows={allRows}
                 loading={loading}
@@ -134,18 +143,17 @@ export default function DashboardPage() {
                 activeTimeframe={timeframe}
               />
             </motion.div>
-            <motion.div variants={itemVariants}>
-              <CandleChart symbol={symbol} timeframe={timeframe} />
+          </div>
+          <div className="flex flex-col lg:col-span-4">
+            <motion.div variants={itemVariants} className="flex-1 [&>div]:h-full">
+              <CurrentSignalCard decision={decision} loading={loading} />
             </motion.div>
           </div>
 
-          {/* Right sidebar — 4/12 */}
-          <div className="space-y-6 lg:col-span-4">
+          {/* Full width chart — 12/12 */}
+          <div className="lg:col-span-12">
             <motion.div variants={itemVariants}>
-              <DecisionLogicCard decision={decision} loading={loading} />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <CurrentSignalCard decision={decision} loading={loading} />
+              <CandleChart symbol={symbol} timeframe={timeframe} />
             </motion.div>
           </div>
         </motion.div>
