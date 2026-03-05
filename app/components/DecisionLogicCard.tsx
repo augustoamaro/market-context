@@ -1,12 +1,11 @@
 import type { LucideProps } from "lucide-react";
-import { Decision, StepStatus } from "@/types/market";
+import { GlobalDecision, StepStatus } from "@/types/market";
 import CardSkeleton from "./Skeleton";
 import { Check, AlertTriangle, X } from "lucide-react";
 
 interface Props {
-  decision: Decision | null;
+  globalDecision: GlobalDecision | null;
   loading: boolean;
-  timeframe?: string;
 }
 
 const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: React.ComponentType<LucideProps> }> = {
@@ -15,25 +14,36 @@ const statusStyles: Record<StepStatus, { color: string; chipBg: string; Icon: Re
   bad:  { color: "text-danger", chipBg: "bg-danger/[0.08] text-danger/80",       Icon: X },
 };
 
-export default function DecisionLogicCard({ decision, loading, timeframe }: Props) {
+const conflictLabels = {
+  none: "nenhum",
+  low: "baixo",
+  high: "alto",
+} as const;
+
+export default function DecisionLogicCard({ globalDecision, loading }: Props) {
   if (loading) return <CardSkeleton rows={4} height="h-64" />;
-  if (!decision) return null;
+  if (!globalDecision) return null;
+
+  const sizePct = Math.round(globalDecision.positionSizeModifier * 100);
+  const barTone =
+    sizePct >= 100
+      ? "bg-text"
+      : sizePct >= 50
+        ? "bg-warn"
+        : sizePct > 0
+          ? "bg-danger"
+          : "bg-white/10";
 
   return (
     <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8">
-      <div className="mb-5 pl-1 flex items-center justify-between gap-3">
+      <div className="mb-5 pl-1">
         <h2 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">Decision Logic</h2>
-        {timeframe && (
-          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
-            Diagnostico: {timeframe}
-          </span>
-        )}
       </div>
 
       <div className="relative pl-3">
-        {decision.steps.map((step, idx) => {
+        {globalDecision.steps.map((step, idx) => {
           const { color, chipBg, Icon } = statusStyles[step.status];
-          const isLast = idx === decision.steps.length - 1;
+          const isLast = idx === globalDecision.steps.length - 1;
 
           return (
             <div key={step.id} className="relative flex gap-5 pb-5 last:pb-0">
@@ -66,34 +76,23 @@ export default function DecisionLogicCard({ decision, loading, timeframe }: Prop
         })}
       </div>
 
-      {/* Score Breakdown */}
       <div className="mt-6 pt-5 border-t border-white/5">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted mb-4">Score Breakdown</h3>
-        {(
-          [
-            { label: "Trend",    value: decision.scoreBreakdown.trend,    max: 30 },
-            { label: "Regime",   value: decision.scoreBreakdown.regime,   max: 20 },
-            { label: "Position", value: decision.scoreBreakdown.position, max: 20 },
-            { label: "Momentum", value: decision.scoreBreakdown.momentum, max: 15 },
-            { label: "Volume",   value: decision.scoreBreakdown.volume,   max: 15 },
-          ] as const
-        ).map(({ label, value, max }) => (
-          <div key={label} className="flex items-center gap-3 mb-2.5">
-            <span className="text-[11px] text-text-muted/60 w-16 shrink-0">{label}</span>
-            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-text-muted/40 rounded-full transition-all duration-300"
-                style={{ width: `${(value / max) * 100}%` }}
-              />
-            </div>
-            <span className="text-[11px] font-mono text-text-muted/60 w-10 text-right shrink-0">
-              {value}/{max}
-            </span>
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted mb-4">Sizing</h3>
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3.5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-text-muted">Tamanho sugerido</span>
+            <span className="text-[13px] font-mono text-text">{sizePct}%</span>
           </div>
-        ))}
-        <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
-          <span className="text-[11px] text-text-muted/60">Total</span>
-          <span className="text-[13px] font-mono text-text">{decision.confidenceScore}/100</span>
+          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barTone}`}
+              style={{ width: `${sizePct}%` }}
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-text-muted/70">
+            <span>Conflito MTF</span>
+            <span className="font-mono uppercase">{conflictLabels[globalDecision.consensus.conflictLevel]}</span>
+          </div>
         </div>
       </div>
     </div>

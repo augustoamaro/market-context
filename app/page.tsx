@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { GlobalDecision, MarketContext, MultiTFRow } from "@/types/market";
-import { computeDecision, computeGlobalDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
+import { computeGlobalDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
 import Header from "./components/Header";
 import RegimeHeroCard from "./components/RegimeHeroCard";
 import RangePositionCard from "./components/RangePositionCard";
@@ -71,11 +71,12 @@ export default function DashboardPage() {
       const rows = contexts.map(contextToMultiTFRow);
       const nextConsensus = rows.length > 0 ? computeMultiTFConsensus(rows) : null;
       const executionCtx = contexts.find((ctx) => ctx.timeframe === "1h") ?? contexts[0];
+      const anchorCtx = contexts.find((ctx) => ctx.timeframe === "4h") ?? executionCtx;
 
       setAllRows(rows);
       setGlobalDecision(
-        executionCtx && nextConsensus
-          ? computeGlobalDecision(rows, executionCtx, nextConsensus)
+        executionCtx && anchorCtx && nextConsensus
+          ? computeGlobalDecision(rows, executionCtx, anchorCtx, nextConsensus)
           : null
       );
     } catch (e) {
@@ -106,7 +107,6 @@ export default function DashboardPage() {
   }, [timeframe, allContexts]);
 
   const consensus = allRows.length > 0 ? computeMultiTFConsensus(allRows) : null;
-  const decision = activeCtx && consensus ? computeDecision(activeCtx, allRows, consensus) : null;
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -146,12 +146,6 @@ export default function DashboardPage() {
               {/* Left column — 8/12 */}
               <div className="space-y-6 lg:col-span-8">
                 <motion.div variants={itemVariants}>
-                  <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
-                </motion.div>
-                <motion.div variants={itemVariants}>
-                  <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
-                </motion.div>
-                <motion.div variants={itemVariants}>
                   <TrendMonitorCard
                     rows={allRows}
                     consensus={consensus}
@@ -161,6 +155,12 @@ export default function DashboardPage() {
                   />
                 </motion.div>
                 <motion.div variants={itemVariants}>
+                  <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
+                </motion.div>
+                <motion.div variants={itemVariants}>
                   <CandleChart symbol={symbol} timeframe={timeframe} />
                 </motion.div>
               </div>
@@ -168,14 +168,14 @@ export default function DashboardPage() {
               {/* Right sidebar — 4/12, self-start so cards don't stretch */}
               <div className="space-y-6 lg:col-span-4 lg:self-start">
                 <motion.div variants={itemVariants}>
-                  <DecisionLogicCard decision={decision} loading={loading} timeframe={timeframe} />
-                </motion.div>
-                <motion.div variants={itemVariants}>
                   <CurrentSignalCard
                     globalDecision={globalDecision}
                     executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
                     loading={loading}
                   />
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <DecisionLogicCard globalDecision={globalDecision} loading={loading} />
                 </motion.div>
               </div>
             </motion.div>

@@ -228,6 +228,167 @@ function conflictStep(consensus: MultiTFConsensus): DecisionStep {
   };
 }
 
+function isMidRangeZone(pct: number): boolean {
+  return pct >= 40 && pct <= 60;
+}
+
+function isEntryZone(pct: number): boolean {
+  return pct < 25 || pct > 75;
+}
+
+function globalRegimeStep(anchorCtx: MarketContext): DecisionStep {
+  return {
+    id: "regime",
+    title: "Regime + Playbook",
+    description:
+      anchorCtx.marketState === "expansion"
+        ? `Anchor ${anchorCtx.timeframe}: EXPANSION — setups direcionais permitidos`
+        : `Anchor ${anchorCtx.timeframe}: EQUILIBRIUM — somente range trades`,
+    status: anchorCtx.marketState === "expansion" ? "ok" : "warn",
+    details: anchorCtx.stateReason,
+  };
+}
+
+function globalPositionStep(anchorCtx: MarketContext): DecisionStep {
+  const pct = Math.round(anchorCtx.pricePositionPct);
+  let status: StepStatus = "ok";
+  let details = `Zona de entrada (posição ${pct}%)`;
+
+  if (isMidRangeZone(anchorCtx.pricePositionPct)) {
+    status = "bad";
+    details = `Mid-range — zona de baixa convicção (${pct}%)`;
+  } else if (
+    (anchorCtx.pricePositionPct >= 25 && anchorCtx.pricePositionPct < 40) ||
+    (anchorCtx.pricePositionPct > 60 && anchorCtx.pricePositionPct <= 75)
+  ) {
+    status = "warn";
+    details = `Zona intermediária — cuidado (${pct}%)`;
+  }
+
+  return {
+    id: "position",
+    title: "Range Position",
+    description: `Anchor ${anchorCtx.timeframe}: posição operacional no range`,
+    status,
+    details,
+  };
+}
+
+function executionReadinessStep(
+  executionCtx: MarketContext,
+  bias: GlobalBias
+): DecisionStep {
+  const pct = Math.round(executionCtx.pricePositionPct);
+  const isPositionMid = isMidRangeZone(executionCtx.pricePositionPct);
+  const rsiExtreme =
+    bias === "LONG"
+      ? executionCtx.rsi14 > 72
+      : bias === "SHORT"
+        ? executionCtx.rsi14 < 28
+        : executionCtx.rsi14 > 72 || executionCtx.rsi14 < 28;
+
+  let status: StepStatus = "ok";
+  let details = `${executionCtx.timeframe} pronto — RSI ${executionCtx.rsi14.toFixed(1)}, posição ${pct}%`;
+
+  if (isPositionMid && rsiExtreme) {
+    status = "bad";
+    details = `${executionCtx.timeframe} desfavorável — RSI ${executionCtx.rsi14.toFixed(1)}, posição ${pct}%`;
+  } else if (isPositionMid || rsiExtreme) {
+    status = "warn";
+    details = `${executionCtx.timeframe} aguardando — RSI ${executionCtx.rsi14.toFixed(1)}, posição ${pct}%`;
+  }
+
+  return {
+    id: "execution",
+    title: "Execution Readiness",
+    description: `${executionCtx.timeframe} mede a prontidão da entrada`,
+    status,
+    details,
+  };
+}
+
+function executionVolumeStep(executionCtx: MarketContext): DecisionStep {
+  const pct = executionCtx.volumeRatioPct;
+  let status: StepStatus;
+  let details: string;
+
+  if (pct >= 100) {
+    status = "ok";
+    details = `Volume acima da média (${Math.round(pct)}%)`;
+  } else if (pct >= 70) {
+    status = "warn";
+    details = `Volume moderado (${Math.round(pct)}%)`;
+  } else {
+    status = "bad";
+    details = `Volume fraco — sem confirmação (${Math.round(pct)}%)`;
+  }
+
+  return {
+    id: "volume",
+    title: "Volume",
+    description: `${executionCtx.timeframe} confirma participação`,
+    status,
+    details,
+  };
+}
+
+function sizeStep(modifier: number): DecisionStep {
+  if (modifier >= 1) {
+    return {
+      id: "size",
+      title: "Position Size",
+      description: "Tamanho final sugerido após conflito + prontidão",
+      status: "ok",
+      details: "Tamanho normal (100%) — alinhamento total",
+    };
+  }
+
+  if (modifier >= 0.5) {
+    return {
+      id: "size",
+      title: "Position Size",
+      description: "Tamanho final sugerido após conflito + prontidão",
+      status: "warn",
+      details: "Tamanho reduzido (50%) — conflito baixo",
+    };
+  }
+
+  if (modifier >= 0.25) {
+    return {
+      id: "size",
+      title: "Position Size",
+      description: "Tamanho final sugerido após conflito + prontidão",
+      status: "bad",
+      details: "Tamanho mínimo (25%) — conflito alto",
+    };
+  }
+
+  return {
+    id: "size",
+    title: "Position Size",
+    description: "Tamanho final sugerido após conflito + prontidão",
+    status: "bad",
+    details: "Sem tamanho sugerido — setup ainda não está pronto",
+  };
+}
+
+function buildGlobalSteps(
+  consensus: MultiTFConsensus,
+  anchorCtx: MarketContext,
+  executionCtx: MarketContext,
+  bias: GlobalBias,
+  positionSizeModifier: number
+): DecisionStep[] {
+  return [
+    conflictStep(consensus),
+    globalRegimeStep(anchorCtx),
+    globalPositionStep(anchorCtx),
+    executionReadinessStep(executionCtx, bias),
+    executionVolumeStep(executionCtx),
+    sizeStep(positionSizeModifier),
+  ];
+}
+
 function regimeStep(ctx: MarketContext): DecisionStep {
   const status: StepStatus = ctx.marketState === "expansion" ? "ok" : "warn";
   return {
@@ -484,6 +645,7 @@ export function computeDecision(
 export function computeGlobalDecision(
   rows: MultiTFRow[],
   executionCtx: MarketContext,
+  anchorCtx: MarketContext,
   consensus: MultiTFConsensus = computeMultiTFConsensus(rows)
 ): GlobalDecision {
   let bias: GlobalBias = "NONE";
@@ -493,32 +655,47 @@ export function computeGlobalDecision(
     if (consensus.recommendedAction === "SHORT_BIAS") bias = "SHORT";
   }
 
-  const { pricePositionPct, rsi14, marketState, timeframe } = executionCtx;
+  const { pricePositionPct, rsi14, timeframe } = executionCtx;
 
-  const isMidRange = pricePositionPct >= 40 && pricePositionPct <= 60;
-  const isExtreme = pricePositionPct < 20 || pricePositionPct > 80;
+  const isMidRange = isMidRangeZone(pricePositionPct);
+  const isAnchorExtreme = isEntryZone(anchorCtx.pricePositionPct);
   const rsiOverbought = rsi14 > 72;
   const rsiOversold = rsi14 < 28;
 
   const poorLongEntry = isMidRange || rsiOverbought;
   const poorShortEntry = isMidRange || rsiOversold;
 
-  const reasons = [consensus.summary];
+  const reasons = [consensus.summary, `${anchorCtx.timeframe} ${anchorCtx.marketState} — ${anchorCtx.stateReason}`];
+
+  function finalize(
+    signal: GlobalDecision["signal"],
+    nextBias: GlobalBias,
+    label: string,
+    positionSizeModifier: number,
+    nextReasons: string[]
+  ): GlobalDecision {
+    return {
+      signal,
+      bias: nextBias,
+      label,
+      executionTF: timeframe,
+      positionSizeModifier,
+      reasons: nextReasons,
+      steps: buildGlobalSteps(consensus, anchorCtx, executionCtx, nextBias, positionSizeModifier),
+      consensus,
+    };
+  }
 
   if (bias === "NONE") {
-    if (consensus.conflictLevel === "high" && marketState === "equilibrium" && isExtreme) {
-      reasons.push(`Execution TF ${timeframe} em extremo de range (${Math.round(pricePositionPct)}%)`);
+    if (
+      consensus.conflictLevel === "high" &&
+      anchorCtx.marketState === "equilibrium" &&
+      isAnchorExtreme
+    ) {
+      reasons.push(`${anchorCtx.timeframe} em extremo de range (${Math.round(anchorCtx.pricePositionPct)}%)`);
       reasons.push("Fade de range permitido com tamanho reduzido");
 
-      return {
-        signal: "WATCH",
-        bias: "NONE",
-        label: "LOW CONVICTION — Range apenas",
-        executionTF: timeframe,
-        positionSizeModifier: 0.25,
-        reasons,
-        consensus,
-      };
+      return finalize("WATCH", "NONE", "LOW CONVICTION — Range apenas", 0.25, reasons);
     }
 
     if (consensus.conflictLevel === "high") {
@@ -527,15 +704,7 @@ export function computeGlobalDecision(
       reasons.push("Bias global insuficiente para entrada");
     }
 
-    return {
-      signal: "WAIT",
-      bias: "NONE",
-      label: "NO TRADE",
-      executionTF: timeframe,
-      positionSizeModifier: 0,
-      reasons,
-      consensus,
-    };
+    return finalize("WAIT", "NONE", "NO TRADE", 0, reasons);
   }
 
   if (bias === "LONG") {
@@ -543,58 +712,38 @@ export function computeGlobalDecision(
       if (isMidRange) reasons.push(`Execution TF ${timeframe} em mid-range (${Math.round(pricePositionPct)}%)`);
       if (rsiOverbought) reasons.push(`RSI ${rsi14.toFixed(1)} — overbought no ${timeframe}`);
 
-      return {
-        signal: "WATCH",
-        bias: "LONG",
-        label: "AGUARDANDO SETUP — Posição desfavorável",
-        executionTF: timeframe,
-        positionSizeModifier: 0,
-        reasons,
-        consensus,
-      };
+      return finalize("WATCH", "LONG", "AGUARDANDO SETUP — Posição desfavorável", 0, reasons);
     }
 
     reasons.push(`Posição favorável no ${timeframe} (${Math.round(pricePositionPct)}%)`);
     reasons.push(`RSI ${rsi14.toFixed(1)} no ${timeframe}`);
 
-    return {
-      signal: "READY",
-      bias: "LONG",
-      label: consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
-      executionTF: timeframe,
-      positionSizeModifier: consensus.conflictLevel === "none" ? 1 : 0.5,
-      reasons,
-      consensus,
-    };
+    return finalize(
+      "READY",
+      "LONG",
+      consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
+      consensus.conflictLevel === "none" ? 1 : 0.5,
+      reasons
+    );
   }
 
   if (poorShortEntry) {
     if (isMidRange) reasons.push(`Execution TF ${timeframe} em mid-range (${Math.round(pricePositionPct)}%)`);
     if (rsiOversold) reasons.push(`RSI ${rsi14.toFixed(1)} — oversold no ${timeframe}`);
 
-    return {
-      signal: "WATCH",
-      bias: "SHORT",
-      label: "AGUARDANDO SETUP — Posição desfavorável",
-      executionTF: timeframe,
-      positionSizeModifier: 0,
-      reasons,
-      consensus,
-    };
+    return finalize("WATCH", "SHORT", "AGUARDANDO SETUP — Posição desfavorável", 0, reasons);
   }
 
   reasons.push(`Posição favorável no ${timeframe} (${Math.round(pricePositionPct)}%)`);
   reasons.push(`RSI ${rsi14.toFixed(1)} no ${timeframe}`);
 
-  return {
-    signal: "READY",
-    bias: "SHORT",
-    label: consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
-    executionTF: timeframe,
-    positionSizeModifier: consensus.conflictLevel === "none" ? 1 : 0.5,
-    reasons,
-    consensus,
-  };
+  return finalize(
+    "READY",
+    "SHORT",
+    consensus.conflictLevel === "none" ? "HIGH CONVICTION" : "LOW CONVICTION",
+    consensus.conflictLevel === "none" ? 1 : 0.5,
+    reasons
+  );
 }
 
 export function deriveAlignment(

@@ -57,6 +57,25 @@ function makeRows(alignments: Record<string, MultiTFRow["alignment"]>): MultiTFR
   );
 }
 
+function makeExecutionCtx(overrides: Partial<MarketContext> = {}): MarketContext {
+  return makeCtx({
+    timeframe: "1h",
+    pricePositionPct: 20,
+    rsi14: 52,
+    marketState: "expansion",
+    ...overrides,
+  });
+}
+
+function makeAnchorCtx(overrides: Partial<MarketContext> = {}): MarketContext {
+  return makeCtx({
+    timeframe: "4h",
+    pricePositionPct: 20,
+    marketState: "expansion",
+    ...overrides,
+  });
+}
+
 describe("deriveAlignment()", () => {
   it("requires slopeUp for bullish alignment", () => {
     expect(deriveAlignment(320, 300, 200, 100)).toBe("bullish");
@@ -231,17 +250,22 @@ describe("computeGlobalDecision()", () => {
       "1d": "bullish",
       "1w": "bullish",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
-      pricePositionPct: 20,
-      rsi14: 52,
-      marketState: "expansion",
-    });
+    const executionCtx = makeExecutionCtx();
+    const anchorCtx = makeAnchorCtx();
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("READY");
     expect(result.bias).toBe("LONG");
+    expect(result.steps).toHaveLength(6);
+    expect(result.steps.map((step) => step.id)).toEqual([
+      "mtf_conflict",
+      "regime",
+      "position",
+      "execution",
+      "volume",
+      "size",
+    ]);
   });
 
   it("returns WATCH LONG when execution context is mid-range", () => {
@@ -252,16 +276,17 @@ describe("computeGlobalDecision()", () => {
       "1d": "bullish",
       "1w": "bullish",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
+    const executionCtx = makeExecutionCtx({
       pricePositionPct: 50,
-      rsi14: 52,
     });
+    const anchorCtx = makeAnchorCtx();
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("WATCH");
     expect(result.bias).toBe("LONG");
+    expect(result.steps.find((step) => step.id === "execution")?.status).toBe("warn");
+    expect(result.steps.find((step) => step.id === "size")?.status).toBe("bad");
   });
 
   it("returns WATCH LONG when execution RSI is overbought", () => {
@@ -272,13 +297,12 @@ describe("computeGlobalDecision()", () => {
       "1d": "bullish",
       "1w": "bullish",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
-      pricePositionPct: 20,
+    const executionCtx = makeExecutionCtx({
       rsi14: 78,
     });
+    const anchorCtx = makeAnchorCtx();
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("WATCH");
     expect(result.bias).toBe("LONG");
@@ -292,16 +316,21 @@ describe("computeGlobalDecision()", () => {
       "1d": "bearish",
       "1w": "bearish",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
+    const executionCtx = makeExecutionCtx({
+      marketState: "expansion",
+      pricePositionPct: 50,
+    });
+    const anchorCtx = makeAnchorCtx({
       marketState: "expansion",
       pricePositionPct: 50,
     });
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("WAIT");
     expect(result.bias).toBe("NONE");
+    expect(result.steps.find((step) => step.id === "mtf_conflict")?.status).toBe("bad");
+    expect(result.steps.find((step) => step.id === "size")?.status).toBe("bad");
   });
 
   it("returns WATCH NONE for high conflict range fade exception", () => {
@@ -312,16 +341,20 @@ describe("computeGlobalDecision()", () => {
       "1d": "bearish",
       "1w": "bearish",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
+    const executionCtx = makeExecutionCtx({
+      marketState: "equilibrium",
+      pricePositionPct: 15,
+    });
+    const anchorCtx = makeAnchorCtx({
       marketState: "equilibrium",
       pricePositionPct: 15,
     });
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("WATCH");
     expect(result.bias).toBe("NONE");
+    expect(result.steps.find((step) => step.id === "size")?.details).toContain("25%");
   });
 
   it("returns WAIT NONE when consensus itself is weak", () => {
@@ -332,15 +365,36 @@ describe("computeGlobalDecision()", () => {
       "1d": "sideways",
       "1w": "sideways",
     });
-    const executionCtx = makeCtx({
-      timeframe: "1h",
-      pricePositionPct: 20,
-      rsi14: 52,
-    });
+    const executionCtx = makeExecutionCtx();
+    const anchorCtx = makeAnchorCtx();
 
-    const result = computeGlobalDecision(rows, executionCtx, computeMultiTFConsensus(rows));
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("WAIT");
     expect(result.bias).toBe("NONE");
+  });
+
+  it("uses anchor context for regime and range position steps", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "bullish",
+      "1d": "bullish",
+      "1w": "bullish",
+    });
+    const executionCtx = makeExecutionCtx({
+      pricePositionPct: 20,
+    });
+    const anchorCtx = makeAnchorCtx({
+      marketState: "equilibrium",
+      stateReason: "Balanced auction",
+      pricePositionPct: 50,
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
+
+    expect(result.steps.find((step) => step.id === "regime")?.status).toBe("warn");
+    expect(result.steps.find((step) => step.id === "position")?.status).toBe("bad");
+    expect(result.steps.find((step) => step.id === "regime")?.details).toBe("Balanced auction");
   });
 });

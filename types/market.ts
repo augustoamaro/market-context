@@ -94,6 +94,7 @@ export interface GlobalDecision {
   executionTF: string;
   positionSizeModifier: number;
   reasons: string[];
+  steps: DecisionStep[];
   consensus: MultiTFConsensus;
 }
 
