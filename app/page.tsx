@@ -11,6 +11,7 @@ import TrendMonitorCard from "./components/TrendMonitorCard";
 import DecisionLogicCard from "./components/DecisionLogicCard";
 import CurrentSignalCard from "./components/CurrentSignalCard";
 import ActionsCard from "./components/ActionsCard";
+import AccountCard from "./components/AccountCard";
 
 const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 const REFRESH_INTERVAL = 60_000;
@@ -41,32 +42,36 @@ export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState("4h");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [allContexts, setAllContexts] = useState<MarketContext[]>([]);
   const [activeCtx, setActiveCtx] = useState<MarketContext | null>(null);
   const [allRows, setAllRows] = useState<MultiTFRow[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // load depends only on symbol — timeframe switching is instant from cache
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch all timeframes in parallel
-      const results = await Promise.all(
+      const settled = await Promise.allSettled(
         ALL_TIMEFRAMES.map((tf) => fetchContext(symbol, tf))
       );
-      const rows = results.map(contextToMultiTFRow);
-      setAllRows(rows);
+      const contexts = settled
+        .filter((r): r is PromiseFulfilledResult<MarketContext> => r.status === "fulfilled")
+        .map((r) => r.value);
 
-      const active = results.find((r) => r.timeframe === timeframe) ?? results[0];
-      setActiveCtx(active);
+      if (contexts.length === 0) throw new Error("All timeframes failed to load");
+
+      setAllContexts(contexts);
+      setAllRows(contexts.map(contextToMultiTFRow));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
-  }, [symbol, timeframe]);
+  }, [symbol]);
 
-  // Reload when symbol changes (fetch all TFs fresh)
+  // Reload when symbol changes and set up auto-refresh
   useEffect(() => {
     load();
     if (timerRef.current) clearInterval(timerRef.current);
@@ -74,16 +79,12 @@ export default function DashboardPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [load]);
 
-  // When timeframe changes, update activeCtx from already-fetched rows without refetching
+  // Derive activeCtx from cache when timeframe changes — no network call
   useEffect(() => {
-    setAllRows((prev) => {
-      const match = prev.find((r) => r.timeframe === timeframe);
-      if (!match) return prev; // will be loaded on next full refresh
-      return prev;
-    });
-    // Re-derive activeCtx from cached results if available
-    // (full refetch happens via `load` dependency on timeframe anyway)
-  }, [timeframe]);
+    if (allContexts.length === 0) return;
+    const match = allContexts.find((c) => c.timeframe === timeframe);
+    setActiveCtx(match ?? allContexts[0]);
+  }, [timeframe, allContexts]);
 
   const decision = activeCtx ? computeDecision(activeCtx, allRows) : null;
 
@@ -146,6 +147,9 @@ export default function DashboardPage() {
             </motion.div>
             <motion.div variants={itemVariants}>
               <ActionsCard ctx={activeCtx} loading={loading} onRefresh={load} />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <AccountCard />
             </motion.div>
           </div>
         </motion.div>

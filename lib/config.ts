@@ -5,6 +5,9 @@ export const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 export const BINANCE_BASE_URL =
   process.env.BINANCE_BASE_URL ?? "https://api.binance.com";
 
+export const BINANCE_API_KEY = process.env.BINANCE_API_KEY ?? "";
+export const BINANCE_SECRET  = process.env.BINANCE_SECRET  ?? "";
+
 export const CACHE_TTL_MS =
   parseInt(process.env.CACHE_TTL_SECONDS ?? "60", 10) * 1000;
 

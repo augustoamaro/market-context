@@ -73,51 +73,60 @@ Open: `http://localhost:3000`
 ## Project Structure
 
 ```
-market-context-dashboard/
+market-context/
 ├── app/
 │   ├── api/
+│   │   ├── account/
+│   │   │   └── route.ts              # GET /api/account (saldos autenticados)
 │   │   ├── context/
-│   │   │   └── route.ts              # GET /api/context (single + multi via query)
+│   │   │   └── route.ts              # GET /api/context?symbol=&timeframe= (single)
+│   │   │                             # GET /api/context?symbols=,&timeframe= (batch)
 │   │   ├── symbols/
 │   │   │   └── route.ts              # GET /api/symbols
 │   │   └── timeframes/
 │   │       └── route.ts              # GET /api/timeframes
 │   │
 │   ├── components/
-│   │   ├── Dashboard.tsx             # root component + auto-refresh
-│   │   ├── SymbolCard.tsx            # card per symbol
-│   │   ├── TrendBadge.tsx            # UP / DOWN / SIDEWAYS badge
-│   │   ├── RangeBar.tsx              # 0–100% range bar
-│   │   ├── MarketStateBadge.tsx      # EQUILIBRIUM / EXPANSION badge
-│   │   └── IndicatorTable.tsx        # EMA / RSI / Volume table
+│   │   ├── AccountCard.tsx           # saldos USDT/BTC/ETH/SOL/BNB da conta
+│   │   ├── ActionsCard.tsx           # refresh, copiar resumo, abrir TradingView
+│   │   ├── CurrentSignalCard.tsx     # sinal atual (UP/DOWN/WAIT) + conviction
+│   │   ├── DecisionLogicCard.tsx     # timeline com os 4 steps da decisao
+│   │   ├── Header.tsx                # symbol select, timeframe tabs, price ticker
+│   │   ├── RangePositionCard.tsx     # barra de posicao no range 0-100%
+│   │   ├── RegimeHeroCard.tsx        # regime principal (expansion/equilibrium)
+│   │   ├── Skeleton.tsx              # loading skeleton reutilizavel
+│   │   └── TrendMonitorCard.tsx      # tabela multi-timeframe com EMAs e alignment
 │   │
+│   ├── globals.css                   # design tokens + bento-card utilities
 │   ├── layout.tsx
-│   └── page.tsx
+│   └── page.tsx                      # estado global + orquestracao dos componentes
 │
 ├── lib/
-│   ├── config.ts                     # symbols, timeframes, thresholds
+│   ├── config.ts                     # symbols, timeframes, thresholds, env vars
+│   ├── decision.ts                   # motor de decisao: 4 steps + signal + conviction
+│   ├── format.ts                     # formatadores de preco, pct, volume, data
+│   ├── utils.ts                      # cn() helper para Tailwind
 │   ├── binance/
-│   │   ├── client.ts                 # fetch OHLCV + in-memory cache
-│   │   └── types.ts                  # raw Binance kline type
+│   │   ├── client.ts                 # fetch OHLCV + cache em memoria (60s)
+│   │   ├── signedClient.ts           # requests autenticados com HMAC-SHA256
+│   │   └── types.ts                  # tipos RawKline e OHLCV
 │   │
 │   ├── indicators/
-│   │   ├── ema.ts                    # EMA via SMA seed + exponential smoothing
-│   │   ├── rsi.ts                    # RSI(14) Wilder's method
-│   │   ├── volume.ts                 # volume vs 20-candle average
-│   │   ├── range.ts                  # high/low 20 candles + position %
-│   │   ├── trend.ts                  # up/down/sideways via EMA stack
-│   │   ├── marketState.ts            # equilibrium vs expansion classification
+│   │   ├── ema.ts                    # EMA via SMA seed + suavizacao exponencial
+│   │   ├── rsi.ts                    # RSI(14) metodo Wilder (RMA)
+│   │   ├── volume.ts                 # volume ratio vs media dos ultimos 20 candles
+│   │   ├── range.ts                  # high/low 20 candles + posicao percentual
+│   │   ├── marketState.ts            # classificacao expansion vs equilibrium
 │   │   └── index.ts                  # re-exports
 │   │
 │   └── services/
-│       └── marketContext.ts          # orchestrates fetch + all indicators
+│       └── marketContext.ts          # orquestra fetch + todos os indicadores
 │
 ├── types/
-│   └── market.ts                     # MarketContext, Trend, MarketState, OHLCV
+│   └── market.ts                     # MarketContext, Decision, MultiTFRow, etc.
 │
 ├── .env.example
 ├── package.json
-├── tailwind.config.ts
 ├── tsconfig.json
 └── README.md
 ```
@@ -162,7 +171,11 @@ market-context-dashboard/
 
 ### `GET /api/context?symbols=BTCUSDT,ETHUSDT&timeframe=4h`
 
-Returns an array of `MarketContext` objects for multiple symbols on the same timeframe.
+Retorna um array de `MarketContext` para multiplos simbolos no mesmo timeframe. Falhas individuais sao ignoradas — apenas os simbolos que carregaram com sucesso sao retornados.
+
+### `GET /api/account`
+
+Retorna os saldos da conta Binance (USDT, BTC, ETH, SOL, BNB) com valores `free` e `locked`. Requer `BINANCE_API_KEY` e `BINANCE_SECRET` no `.env`.
 
 ---
 

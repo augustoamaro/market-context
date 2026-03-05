@@ -1,4 +1,4 @@
-import { BINANCE_BASE_URL, CACHE_TTL_MS, CANDLE_LIMIT } from "@/lib/config";
+import { BINANCE_BASE_URL, BINANCE_API_KEY, CACHE_TTL_MS, CANDLE_LIMIT } from "@/lib/config";
 import { RawKline, OHLCV } from "./types";
 
 interface CacheEntry {
@@ -39,9 +39,13 @@ export async function fetchOHLCV(
   url.searchParams.set("interval", interval);
   url.searchParams.set("limit", String(limit));
 
+  const headers: Record<string, string> = {};
+  if (BINANCE_API_KEY) headers["X-MBX-APIKEY"] = BINANCE_API_KEY;
+
   const res = await fetch(url.toString(), {
     next: { revalidate: 0 }, // disable Next.js fetch cache
     signal: AbortSignal.timeout(10_000),
+    headers,
   });
 
   if (!res.ok) {
