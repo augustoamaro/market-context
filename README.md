@@ -1,9 +1,9 @@
-# Market Context Dashboard
+# HardStop — Market Context Dashboard
 
 A real-time market analysis dashboard built with **Next.js**, **TypeScript**, and **TailwindCSS**.
-It fetches OHLCV data from **Binance** and classifies the current market context — **trend direction**, **price position within the range**, and **market regime** — to help traders avoid operating in the middle of a range or against the dominant trend.
+Fetches OHLCV data from Binance and classifies the current market context across multiple timeframes — trend direction, price position within the range, market regime, momentum, and MACD — to help traders identify high-probability setups and avoid low-conviction environments.
 
-Part of the **HardStop Trading Tools**: a set of practical market-analysis systems focused on liquidity, price action, and orderflow.
+Part of the **HardStop Trading Tools**: a set of practical market-analysis systems focused on price action, liquidity, and orderflow.
 
 ---
 
@@ -11,34 +11,12 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 
 | Layer | Tools |
 |-------|-------|
-| App (fullstack) | Next.js (App Router), TypeScript, TailwindCSS |
-| Market Data | Binance REST API (OHLCV / klines) |
-| Charts | TradingView Lightweight Charts |
-
---- 
-
-## Key Concepts
-
-| Concept | Description |
-|---------|-------------|
-| **Trend** | EMA stack alignment (20/50/200). `up` = bullish order, `down` = bearish, `sideways` = mixed |
-| **Range** | High/low over the last 20 candles. Price position expressed as 0–100% |
-| **Market State** | Regime classification: `expansion` = directional conviction, `equilibrium` = consolidation |
-
-**Rule of thumb**: favor `expansion` aligned with the trend. Avoid `equilibrium` and avoid trading against the trend direction.
-
----
-
-## Market State Logic
-
-Thresholds are configurable in `lib/config.ts`.
-
-| Condition | State |
-|-----------|-------|
-| Price outside range AND volume > 130% of avg | `expansion` |
-| Price inside range AND volume < 100% of avg | `equilibrium` |
-| Volume > 130% of avg (mixed price position) | `expansion` |
-| Otherwise | `equilibrium` |
+| App (fullstack) | Next.js 16 (App Router), TypeScript, TailwindCSS v4 |
+| Market Data | Binance REST API (OHLCV / klines), API key auth |
+| Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
+| Charts | TradingView Lightweight Charts v5 |
+| Animations | Framer Motion |
+| Tests | Vitest (38 tests) |
 
 ---
 
@@ -48,7 +26,7 @@ Thresholds are configurable in `lib/config.ts`.
 # 1. Install dependencies
 pnpm install
 
-# 2. Copy environment variables
+# 2. Copy environment variables and fill in your Binance API key
 cp .env.example .env
 
 # 3. Run the app
@@ -57,16 +35,25 @@ pnpm dev
 
 Open: `http://localhost:3000`
 
+```bash
+# Run tests
+pnpm test
+
+# Run tests with coverage
+pnpm test:coverage
+```
+
 ---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BINANCE_BASE_URL` | `https://api.binance.com` | Binance API base URL |
-| `CACHE_TTL_SECONDS` | `60` | In-memory cache TTL |
-| `DEFAULT_TIMEFRAME` | `4h` | Default chart interval |
-| `DEFAULT_LIMIT` | `300` | Candles fetched per request (needed for EMA/RSI stability) |
+| `BINANCE_API_KEY` | — | Binance API key (improves rate limits on public endpoints) |
+| `BINANCE_SECRET` | — | Binance secret (required for authenticated endpoints) |
+| `BINANCE_BASE_URL` | `https://api.binance.com` | Binance base URL |
+| `CACHE_TTL_SECONDS` | `60` | In-memory cache TTL per symbol/timeframe |
+| `DEFAULT_LIMIT` | `300` | Candles fetched per request (300 needed for EMA-200 stability) |
 
 ---
 
@@ -76,74 +63,64 @@ Open: `http://localhost:3000`
 market-context/
 ├── app/
 │   ├── api/
-│   │   ├── account/
-│   │   │   └── route.ts              # GET /api/account (saldos autenticados)
-│   │   ├── context/
-│   │   │   └── route.ts              # GET /api/context?symbol=&timeframe= (single)
-│   │   │                             # GET /api/context?symbols=,&timeframe= (batch)
-│   │   ├── symbols/
-│   │   │   └── route.ts              # GET /api/symbols
-│   │   └── timeframes/
-│   │       └── route.ts              # GET /api/timeframes
+│   │   ├── candles/route.ts          # GET /api/candles  — raw OHLCV for chart
+│   │   ├── context/route.ts          # GET /api/context  — single or batch symbols
+│   │   ├── symbols/route.ts          # GET /api/symbols
+│   │   └── timeframes/route.ts       # GET /api/timeframes
 │   │
 │   ├── components/
-│   │   ├── CurrentSignalCard.tsx     # sinal atual (UP/DOWN/WAIT) + conviction
-│   │   ├── DecisionLogicCard.tsx     # timeline com os 4 steps da decisao
-│   │   ├── Header.tsx                # symbol select, timeframe tabs, price ticker
-│   │   ├── RangePositionCard.tsx     # barra de posicao no range 0-100%
-│   │   ├── RegimeHeroCard.tsx        # regime principal (expansion/equilibrium)
-│   │   ├── Skeleton.tsx              # loading skeleton reutilizavel
-│   │   └── TrendMonitorCard.tsx      # tabela multi-timeframe com EMAs e alignment
+│   │   ├── CandleChart.tsx           # TradingView candlestick chart (SSR-safe)
+│   │   ├── CurrentSignalCard.tsx     # Final signal (UP/DOWN/WAIT) + conviction score
+│   │   ├── DecisionLogicCard.tsx     # 4-step decision timeline with status icons
+│   │   ├── Header.tsx                # Symbol selector, timeframe tabs, price ticker
+│   │   ├── RangePositionCard.tsx     # Price position within 20-candle range
+│   │   ├── RegimeHeroCard.tsx        # Market regime + RSI/Volume/MACD stats
+│   │   ├── Skeleton.tsx              # Loading skeleton
+│   │   └── TrendMonitorCard.tsx      # Multi-timeframe EMA alignment table
 │   │
-│   ├── globals.css                   # design tokens + bento-card utilities
+│   ├── error.tsx                     # Global error boundary (Next.js App Router)
+│   ├── globals.css                   # Design tokens + bento-card utilities
 │   ├── layout.tsx
-│   └── page.tsx                      # estado global + orquestracao dos componentes
+│   └── page.tsx                      # State orchestration + auto-refresh (60s)
 │
 ├── lib/
-│   ├── config.ts                     # symbols, timeframes, thresholds, env vars
-│   ├── decision.ts                   # motor de decisao: 4 steps + signal + conviction
-│   ├── format.ts                     # formatadores de preco, pct, volume, data
-│   ├── utils.ts                      # cn() helper para Tailwind
+│   ├── config.ts                     # Symbols, timeframes, thresholds, env vars
+│   ├── decision.ts                   # Decision engine: 4 steps → signal + conviction
+│   ├── format.ts                     # Price, percent, volume formatters
+│   ├── rateLimit.ts                  # Sliding-window rate limiter (per IP)
 │   ├── binance/
-│   │   ├── client.ts                 # fetch OHLCV + cache em memoria (60s)
-│   │   ├── signedClient.ts           # requests autenticados com HMAC-SHA256
-│   │   └── types.ts                  # tipos RawKline e OHLCV
+│   │   ├── client.ts                 # OHLCV fetch + 60s in-memory cache
+│   │   ├── signedClient.ts           # HMAC-SHA256 signed requests
+│   │   └── types.ts                  # RawKline, OHLCV types
 │   │
 │   ├── indicators/
-│   │   ├── ema.ts                    # EMA via SMA seed + suavizacao exponencial
-│   │   ├── rsi.ts                    # RSI(14) metodo Wilder (RMA)
-│   │   ├── volume.ts                 # volume ratio vs media dos ultimos 20 candles
-│   │   ├── range.ts                  # high/low 20 candles + posicao percentual
-│   │   ├── marketState.ts            # classificacao expansion vs equilibrium
-│   │   └── index.ts                  # re-exports
+│   │   ├── ema.ts                    # EMA (SMA seed + exponential smoothing)
+│   │   ├── macd.ts                   # MACD line, signal, histogram
+│   │   ├── marketState.ts            # Expansion vs equilibrium classification
+│   │   ├── range.ts                  # 20-candle high/low + price position %
+│   │   ├── rsi.ts                    # RSI-14 Wilder's method (RMA)
+│   │   ├── volume.ts                 # Volume ratio vs 20-candle average
+│   │   └── index.ts                  # Re-exports
 │   │
 │   └── services/
-│       └── marketContext.ts          # orquestra fetch + todos os indicadores
+│       └── marketContext.ts          # Orchestrates fetch + all indicators
 │
-├── types/
-│   └── market.ts                     # MarketContext, Decision, MultiTFRow, etc.
+├── lib/__tests__/decision.test.ts
+├── lib/indicators/__tests__/
+│   ├── ema.test.ts
+│   ├── macd.test.ts
+│   ├── marketState.test.ts
+│   └── rsi.test.ts
 │
+├── types/market.ts                   # MarketContext, Decision, MultiTFRow, etc.
 ├── .env.example
-├── package.json
-├── tsconfig.json
-└── README.md
+├── vitest.config.ts
+└── package.json
 ```
 
 ---
 
 ## API Reference
-
-### `GET /api/symbols`
-
-```json
-["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]
-```
-
-### `GET /api/timeframes`
-
-```json
-["15m", "1h", "4h", "1d"]
-```
 
 ### `GET /api/context?symbol=BTCUSDT&timeframe=4h`
 
@@ -151,94 +128,237 @@ market-context/
 {
   "symbol": "BTCUSDT",
   "timeframe": "4h",
-  "price": 67450.12,
+  "price": 72917.76,
+  "priceChangePct": 0.82,
   "trend": "up",
-  "pricePositionPct": 73,
-  "rangeHigh": 69000,
-  "rangeLow": 62000,
-  "ema20": 67200,
-  "ema50": 65800,
-  "ema200": 58400,
-  "rsi14": 62.4,
-  "volumeRatioPct": 140,
   "marketState": "expansion",
-  "stateReason": "Price broke above range with volume 40% above average",
-  "updatedAt": "2024-06-15T14:32:00.000Z"
+  "stateReason": "Price broke above range with volume 38% above average",
+  "pricePositionPct": 83,
+  "rangeHigh": 75000,
+  "rangeLow": 68000,
+  "ema20": 72400,
+  "ema50": 70100,
+  "ema200": 58200,
+  "rsi14": 61.4,
+  "volumeRatioPct": 138,
+  "macdLine": 210.4,
+  "macdSignal": 180.1,
+  "macdHistogram": 30.3,
+  "updatedAt": "2026-03-05T14:32:00.000Z"
 }
 ```
 
 ### `GET /api/context?symbols=BTCUSDT,ETHUSDT&timeframe=4h`
 
-Retorna um array de `MarketContext` para multiplos simbolos no mesmo timeframe. Falhas individuais sao ignoradas — apenas os simbolos que carregaram com sucesso sao retornados.
+Returns an array of `MarketContext`. Individual failures are skipped — only successfully loaded symbols are returned.
 
-### `GET /api/account`
+### `GET /api/candles?symbol=BTCUSDT&timeframe=4h`
 
-Retorna os saldos da conta Binance (USDT, BTC, ETH, SOL, BNB) com valores `free` e `locked`. Requer `BINANCE_API_KEY` e `BINANCE_SECRET` no `.env`.
+Returns the last 100 OHLCV bars formatted for TradingView Lightweight Charts:
+
+```json
+[{ "time": 1709640000, "open": 71200, "high": 73100, "low": 70900, "close": 72917 }]
+```
+
+### `GET /api/symbols` / `GET /api/timeframes`
+
+```json
+["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]
+["15m", "1h", "4h", "1d"]
+```
 
 ---
 
 ## Indicator Calculations
 
-### EMA
+### EMA (Exponential Moving Average)
 
 ```
 k = 2 / (period + 1)
-EMA[i] = price[i] * k + EMA[i-1] * (1 - k)
+seed    = SMA of first `period` candles
+EMA[i]  = price[i] * k + EMA[i-1] * (1 - k)
 ```
 
-Seeded with an SMA over the first `period` candles.
+Used: EMA-20, EMA-50, EMA-200 for trend classification.
 
-### RSI — Wilder's method (RMA), period = 14
+### RSI — Wilder's Smoothing (RMA), period = 14
 
 ```
-avgGain[i] = (avgGain[i-1] * (period - 1) + gain[i]) / period
-avgLoss[i] = (avgLoss[i-1] * (period - 1) + loss[i]) / period
-RSI = 100 - 100 / (1 + avgGain / avgLoss)
+avgGain[i] = (avgGain[i-1] * 13 + gain[i]) / 14
+avgLoss[i] = (avgLoss[i-1] * 13 + loss[i]) / 14
+RSI        = 100 - 100 / (1 + avgGain / avgLoss)
 ```
+
+### MACD (12, 26, 9)
+
+```
+MACD Line    = EMA(12) - EMA(26)
+Signal Line  = EMA(9) of MACD Line
+Histogram    = MACD Line - Signal Line
+```
+
+Histogram > 0 = bullish momentum building. Histogram < 0 = bearish pressure.
 
 ### Price Range Position
 
 ```
-rangeHigh        = max(high) over last 20 candles
-rangeLow         = min(low)  over last 20 candles
+rangeHigh        = max(high)  over last 20 candles
+rangeLow         = min(low)   over last 20 candles
 pricePositionPct = (price - rangeLow) / (rangeHigh - rangeLow) * 100
 ```
 
-- `> 100` → price broke above the range
-- `< 0` → price broke below the range
+Values outside 0–100 indicate a breakout (> 100) or breakdown (< 0).
 
 ### Volume Ratio
 
 ```
-avgVolume    = mean(volume) over last 20 candles (excluding current)
-volumeRatio  = currentVolume / avgVolume
-volumeRatioPct = volumeRatio * 100
+avgVolume   = mean(volume) over last 20 candles (excluding current)
+volumeRatio = currentVolume / avgVolume
 ```
 
-### Trend
+Ratio ≥ 1.3 signals above-average participation (expansion pressure).
 
-```
-ema20 > ema50 > ema200  →  "up"
-ema20 < ema50 < ema200  →  "down"
-otherwise               →  "sideways"
-```
+### Market Regime
+
+| Condition | State |
+|-----------|-------|
+| Price outside range AND volume ≥ 1.3× avg | `expansion` |
+| Volume ≥ 1.3× avg (any price position) | `expansion` |
+| Price inside range AND volume < 1.0× avg | `equilibrium` |
+| Otherwise | `equilibrium` |
 
 ---
 
-## How to Read the Dashboard
+## How to Read the Dashboard (Trader's Guide)
 
-| Signal | Interpretation |
-|--------|---------------|
-| UP + EXPANSION | Strong trending move with volume — favor trend-following entries |
-| DOWN + EXPANSION | Strong bearish move — avoid longs, consider shorts |
-| SIDEWAYS + EQUILIBRIUM | Consolidation — avoid directional trades |
-| Any trend + EQUILIBRIUM | Low conviction — wait for expansion |
-| Range 0–30% | Price near range low (support zone) |
-| Range 70–100% | Price near range high (resistance zone) |
-| RSI > 70 | Overbought — caution on longs |
-| RSI < 30 | Oversold — caution on shorts |
-| Volume > 1.3x | High participation / momentum |
-| Volume < 0.8x | Low conviction move |
+This section explains how to interpret each panel and combine them into a trading decision.
+
+---
+
+### 1. Market Regime — the first filter
+
+**Where:** top-left card.
+
+The regime tells you whether the market is *doing something* or *waiting*.
+
+| Regime | Meaning | What to do |
+|--------|---------|------------|
+| **Expansion** (green pulse) | Price is moving with volume behind it — directional conviction exists | Look for entries aligned with the trend |
+| **Equilibrium** (neutral) | Market is ranging, volume is low — no side has control | Reduce size, avoid directional bets, wait |
+
+> **Rule #1:** Never force a trade in Equilibrium. The market will tell you when it's ready.
+
+The stats row below the title gives you supporting context:
+
+- **Trend** — EMA stack direction (`Uptrend / Downtrend / Sideways`). The sublabel shows the actual EMA order (`EMA 20 > 50 > 200`).
+- **RSI 14** — momentum reading. Labels: `Healthy` (45–65), `Strong` (65–75), `Overbought` (>75), `Weak` (30–45), `Oversold` (<30). The mini bar shows position in the 0–100 range.
+- **Volume** — current candle vs 20-candle average. `Above avg` or `Very high` confirms expansion. `Below avg` in a move = suspect.
+- **MACD Histogram** — positive = bullish momentum building, negative = bearish. A histogram crossing zero often precedes a trend shift.
+
+---
+
+### 2. Range Strategy — where in the range is price?
+
+**Where:** second card on the left.
+
+The 20-candle high/low defines the current range. The percentage tells you where price sits within it.
+
+| Position | Zone | Interpretation |
+|----------|------|----------------|
+| < 0% | Breakdown | Price broke below — bearish expansion underway |
+| 0–25% | Support | Near range low — potential support or breakdown zone |
+| 25–45% | Low-Mid | Below midpoint — mild bearish lean |
+| 45–55% | Mid Range | Equilibrium midline — **avoid entries here** |
+| 55–75% | High-Mid | Above midpoint — mild bullish lean |
+| 75–100% | Resistance | Near range high — potential resistance or breakout zone |
+| > 100% | Breakout | Price broke above — bullish expansion underway |
+
+The **distance to high/low** (`To High` / `To Low`) shows how much room price has before hitting the boundary. A large "To High" with an Uptrend means there is room to run. A small "To High" with an Uptrend means you are entering near resistance — risky.
+
+> **Rule #2:** Avoid the mid-range (45–55%). Entries here have low directional probability. Wait for price to test a boundary.
+
+---
+
+### 3. Trend Monitor — multi-timeframe alignment
+
+**Where:** third card on the left.
+
+The table shows EMA stack alignment across all four timeframes (15m, 1h, 4h, 1d):
+
+| Alignment | Meaning |
+|-----------|---------|
+| **Bullish** (green dot) | EMA 20 > EMA 50 > EMA 200 on that timeframe |
+| **Bearish** (red dot) | EMA 20 < EMA 50 < EMA 200 on that timeframe |
+| **Sideways** (yellow dot) | EMAs are mixed — no clear order |
+
+**How to use it:** count how many timeframes agree. 3 or 4 bullish = strong trend. 2/4 = mixed, reduce confidence. 1/4 or 0/4 = no directional edge.
+
+The RSI and Volume columns per timeframe let you spot divergences — e.g., price making higher highs while RSI weakens across multiple timeframes is a warning sign.
+
+---
+
+### 4. Decision Logic — the 4-step checklist
+
+**Where:** top-right card.
+
+Every trade setup passes through 4 filters. Each returns a status:
+
+| Icon | Status | Meaning |
+|------|--------|---------|
+| ✓ | OK (white) | Filter passed |
+| ⚠ | Warn (yellow) | Marginal — proceed with reduced size |
+| ✗ | Bad (red) | Filter failed — significant headwind |
+
+**The 4 filters:**
+
+1. **Trend Alignment** — are 3+ timeframes aligned with the selected trend? Bad if sideways, warn if mixed, OK if 3–4 aligned.
+2. **Regime** — is the market in Expansion? Warn if Equilibrium.
+3. **Momentum** — is RSI in a healthy zone (45–65)? Warn if overbought (>75) or oversold (<25).
+4. **Position** — is price away from mid-range? Bad if 40–60%, warn if extreme (>90% or <10%).
+
+> **Rule #3:** A HIGH CONVICTION signal requires at least 3 OK steps and 0 bad steps. Anything less is LOW CONVICTION — smaller size or no trade.
+
+---
+
+### 5. Current Signal — the final verdict
+
+**Where:** bottom-right card.
+
+| Signal | Conviction | Condition |
+|--------|-----------|-----------|
+| **UP** HIGH CONVICTION | ≥3 checks OK, no fails | Trend up + Expansion + RSI healthy + price not mid-range |
+| **UP** LOW CONVICTION | Bullish setup with caveats | Some checks warn or fail |
+| **DOWN** HIGH CONVICTION | ≥3 checks OK, no fails | Trend down + Expansion + RSI healthy + price not mid-range |
+| **DOWN** LOW CONVICTION | Bearish setup with caveats | Some checks warn or fail |
+| **WAIT** NO TRADE | Auto-blocked | Equilibrium + price in mid-range (40–60%) |
+| **WAIT** LOW CONVICTION | Mixed signals | No clear trend or regime alignment |
+
+The **Confidence Score (0–100)** is not a probability — it is a relative strength indicator. A score of 85 means all filters aligned cleanly. A score of 45 means the setup exists but has meaningful headwinds.
+
+---
+
+### Reading the Dashboard Together — Example Scenarios
+
+**Ideal long setup:**
+- Regime: Expansion ✓
+- Trend: Uptrend — EMA 20 > 50 > 200 ✓
+- Trend Monitor: 3–4/4 timeframes bullish ✓
+- Range: Price at 20–30% (support zone) or just broke > 100% (breakout) ✓
+- RSI: 50–65 (healthy, room to run) ✓
+- MACD Histogram: positive and widening ✓
+- Decision Logic: 4/4 OK → **UP / HIGH CONVICTION**
+
+**Stay out scenario:**
+- Regime: Equilibrium
+- Range: 50% (mid-range)
+- Decision Logic: Position = bad, Regime = warn
+- Signal: **WAIT / NO TRADE** — the tool blocks the trade automatically
+
+**Wait for confirmation:**
+- Regime: Expansion but Trend = Sideways
+- Trend Monitor: 2/4 bullish, 2/4 sideways
+- RSI: 72 (approaching overbought)
+- Signal: **WAIT / LOW CONVICTION** — setup exists but not clean enough
 
 ---
 
@@ -257,17 +377,19 @@ export const TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 
 1. Create `lib/indicators/myIndicator.ts`
 2. Export it from `lib/indicators/index.ts`
-3. Call it in `lib/services/marketContext.ts` and include the result in the returned object
+3. Call it in `lib/services/marketContext.ts`
 4. Add the field to `types/market.ts`
-5. Display it in the relevant UI component (e.g. `IndicatorTable.tsx`)
+5. Display it in the relevant component
 
 ### Adjust market state thresholds
 
 Edit `lib/config.ts`:
 
 ```ts
-export const EXPANSION_VOLUME_RATIO   = 1.3;  // 130% of average
-export const EQUILIBRIUM_VOLUME_RATIO = 1.0;  // 100% of average
+export const EXPANSION_VOLUME_RATIO   = 1.3;  // 130% of avg = expansion
+export const EQUILIBRIUM_VOLUME_RATIO = 1.0;  // below 100% = equilibrium
+export const RANGE_LOOKBACK           = 20;   // candles for high/low range
+export const VOLUME_LOOKBACK          = 20;   // candles for volume avg
 ```
 
 ---
@@ -276,22 +398,21 @@ export const EQUILIBRIUM_VOLUME_RATIO = 1.0;  // 100% of average
 
 After running `pnpm dev`, cross-check values against TradingView:
 
-1. Open TradingView → BTCUSDT → 4h
-2. Add EMA(20), EMA(50), EMA(200), RSI(14)
+1. Open TradingView → select symbol → select timeframe
+2. Add EMA(20), EMA(50), EMA(200), RSI(14), MACD(12,26,9)
 3. Compare with:
 
 ```bash
 curl "http://localhost:3000/api/context?symbol=BTCUSDT&timeframe=4h"
 ```
 
-Minor differences are expected due to candle history length and EMA seeding. RSI should match within ~±0.5 with 300 candles.
+Minor differences are expected due to candle history depth and EMA seed. RSI should match within ±0.5 with 300 candles. MACD histogram may differ by a small amount for the same reason.
 
 ---
 
-## Engineering Goals
+## Engineering Notes
 
-- Market data ingestion from public exchange APIs
-- Technical indicator computation from raw OHLCV
-- Market regime classification
-- Modular, reusable indicator architecture
-- Fully typed API responses with TypeScript
+- **Cache:** each symbol/timeframe pair is cached in-memory for 60s. The UI auto-refreshes on the same interval. Timeframe switching is instant (served from cache, no new request).
+- **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
+- **Tests:** 38 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine.
+- **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
