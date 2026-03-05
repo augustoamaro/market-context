@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import CardSkeleton from "./Skeleton";
 
 interface Bar {
   time: number;
@@ -17,33 +16,40 @@ interface Props {
   timeframe: string;
 }
 
-// Inner chart — only loaded client-side (no SSR)
+const CHART_HEIGHT = 400;
+
 function ChartInner({ symbol, timeframe }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [bars, setBars] = useState<Bar[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setBars(null);
+    setError(null);
     fetch(`/api/candles?symbol=${symbol}&timeframe=${timeframe}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) throw new Error(data.error);
         setBars(data);
       })
-      .catch((e) => setError(e.message));
+      .catch((e: Error) => setError(e.message));
   }, [symbol, timeframe]);
 
   useEffect(() => {
     if (!bars || !containerRef.current) return;
 
-    let chart: ReturnType<typeof import("lightweight-charts")["createChart"]> | null = null;
+    // Closed-over variables — accessible by cleanup even after async import
+    let active = true;
+    let chartInstance: { remove: () => void; applyOptions: (o: object) => void; timeScale: () => { fitContent: () => void } } | null = null;
+    let roInstance: ResizeObserver | null = null;
 
     import("lightweight-charts").then(({ createChart, CandlestickSeries }) => {
-      if (!containerRef.current) return;
+      // Guard: effect may have been cleaned up before the import resolved
+      if (!active || !containerRef.current) return;
 
-      chart = createChart(containerRef.current, {
+      const chart = createChart(containerRef.current, {
         width:  containerRef.current.clientWidth,
-        height: 260,
+        height: CHART_HEIGHT,
         layout: {
           background: { color: "#111111" },
           textColor:  "#A1A1AA",
@@ -57,36 +63,35 @@ function ChartInner({ symbol, timeframe }: Props) {
           horzLine: { color: "rgba(255,255,255,0.2)" },
         },
         rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
-        timeScale:       { borderColor: "rgba(255,255,255,0.08)", timeVisible: true },
+        timeScale:        { borderColor: "rgba(255,255,255,0.08)", timeVisible: true },
       });
 
+      chartInstance = chart;
+
       const series = chart.addSeries(CandlestickSeries, {
-        upColor:        "#10B981",
-        downColor:      "#EF4444",
-        borderUpColor:  "#10B981",
-        borderDownColor:"#EF4444",
-        wickUpColor:    "#10B981",
-        wickDownColor:  "#EF4444",
+        upColor:         "#10B981",
+        downColor:       "#EF4444",
+        borderUpColor:   "#10B981",
+        borderDownColor: "#EF4444",
+        wickUpColor:     "#10B981",
+        wickDownColor:   "#EF4444",
       });
 
       series.setData(bars as Parameters<typeof series.setData>[0]);
       chart.timeScale().fitContent();
 
-      const ro = new ResizeObserver(() => {
-        if (containerRef.current && chart) {
-          chart.applyOptions({ width: containerRef.current.clientWidth });
+      roInstance = new ResizeObserver(() => {
+        if (containerRef.current && chartInstance) {
+          chartInstance.applyOptions({ width: containerRef.current.clientWidth });
         }
       });
-      ro.observe(containerRef.current);
-
-      return () => {
-        ro.disconnect();
-        chart?.remove();
-      };
+      roInstance.observe(containerRef.current);
     });
 
     return () => {
-      chart?.remove();
+      active = false;
+      roInstance?.disconnect();
+      chartInstance?.remove();
     };
   }, [bars]);
 
@@ -96,7 +101,7 @@ function ChartInner({ symbol, timeframe }: Props) {
 
   if (!bars) {
     return (
-      <div className="h-[260px] flex items-center justify-center">
+      <div style={{ height: CHART_HEIGHT }} className="flex items-center justify-center">
         <span className="text-[12px] text-text-muted animate-pulse">Loading chart...</span>
       </div>
     );
@@ -105,7 +110,6 @@ function ChartInner({ symbol, timeframe }: Props) {
   return <div ref={containerRef} className="w-full" />;
 }
 
-// Export as dynamic with SSR disabled
 const CandleChartDynamic = dynamic(() => Promise.resolve(ChartInner), { ssr: false });
 
 export default function CandleChart(props: Props) {
