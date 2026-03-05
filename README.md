@@ -7,16 +7,22 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 
 ---
 
-## Tech Stack
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen?logo=vitest)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-| Layer | Tools |
-|-------|-------|
-| App (fullstack) | Next.js 16 (App Router), TypeScript, TailwindCSS v4 |
-| Market Data | Binance REST API (OHLCV / klines), API key auth |
-| Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
-| Charts | TradingView Lightweight Charts v5 |
-| Animations | Framer Motion |
-| Tests | Vitest (38 tests) |
+## Preview
+
+![HardStop dashboard preview](./public/preview.png)
+_Illustrative preview image. Replace `public/preview.png` with a live screenshot after UI updates._
+
+---
+
+## Requirements
+
+- Node.js >= 20
+- pnpm >= 9 (`npm install -g pnpm`)
 
 ---
 
@@ -26,34 +32,68 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 # 1. Install dependencies
 pnpm install
 
-# 2. Copy environment variables and fill in your Binance API key
+# 2. Optional: copy env defaults (works without Binance credentials)
 cp .env.example .env
 
 # 3. Run the app
 pnpm dev
 ```
 
+This dashboard runs against Binance public OHLCV endpoints out of the box.
+`BINANCE_API_KEY` is optional and only improves rate limits for public requests.
+
 Open: `http://localhost:3000`
 
-```bash
-# Run tests
-pnpm test
+---
 
-# Run tests with coverage
-pnpm test:coverage
-```
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start dev server at `localhost:3000` |
+| `pnpm build` | Production build |
+| `pnpm start` | Start production server |
+| `pnpm test` | Run all 38 unit tests (Vitest) |
+| `pnpm test:watch` | Run tests in watch mode |
+| `pnpm test:coverage` | Run tests with v8 coverage report |
+| `pnpm lint` | Run ESLint |
+
+---
+
+## Tech Stack
+
+| Layer | Tools |
+|-------|-------|
+| App (fullstack) | Next.js 16 (App Router), TypeScript, TailwindCSS v4 |
+| Market Data | Binance REST API (OHLCV / klines), optional API key header |
+| Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
+| Charts | TradingView Lightweight Charts v5 |
+| Animations | Framer Motion |
+| Tests | Vitest (38 tests) |
 
 ---
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BINANCE_API_KEY` | — | Binance API key (improves rate limits on public endpoints) |
-| `BINANCE_SECRET` | — | Binance secret (required for authenticated endpoints) |
-| `BINANCE_BASE_URL` | `https://api.binance.com` | Binance base URL |
-| `CACHE_TTL_SECONDS` | `60` | In-memory cache TTL per symbol/timeframe |
-| `DEFAULT_LIMIT` | `300` | Candles fetched per request (300 needed for EMA-200 stability) |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `BINANCE_API_KEY` | Optional | — | Adds `X-MBX-APIKEY` header for public endpoints (`/api/context`, `/api/candles`) to improve per-key rate limits |
+| `BINANCE_SECRET` | Optional | — | Only for HMAC-signed private endpoints (`lib/binance/signedClient.ts`, `/api/account`) |
+| `BINANCE_BASE_URL` | No | `https://api.binance.com` | Binance base URL |
+| `CACHE_TTL_SECONDS` | No | `60` | In-memory cache TTL per symbol/timeframe |
+| `DEFAULT_LIMIT` | No | `300` | Candles fetched per request (300 needed for EMA-200 stability) |
+
+`/api/context` and `/api/candles` use public OHLCV endpoints and work with zero credentials.
+`BINANCE_SECRET` is kept for private-account features and is not required to run the current dashboard UI.
+
+---
+
+## Security
+
+- Never commit `.env` files (`.env*` is already git-ignored).
+- Prefer `.env.local` for local secrets; Next.js loads it automatically and it is also git-ignored.
+- `BINANCE_API_KEY` is low-risk (read-only market data header), but rotate it if leaked.
+- `BINANCE_SECRET` is highly sensitive: it can sign private requests. Never log it, expose it client-side, or commit it.
 
 ---
 
@@ -335,6 +375,12 @@ Every trade setup passes through 4 filters. Each returns a status:
 
 The **Confidence Score (0–100)** is not a probability — it is a relative strength indicator. A score of 85 means all filters aligned cleanly. A score of 45 means the setup exists but has meaningful headwinds.
 
+Reference scale:
+- `0` = **NO TRADE** (auto-blocked)
+- `20` = **WAIT** (mixed or weak structure)
+- `40–60` = **LOW CONVICTION**
+- `75–95` = **HIGH CONVICTION**
+
 ---
 
 ### Reading the Dashboard Together — Example Scenarios
@@ -394,6 +440,26 @@ export const VOLUME_LOOKBACK          = 20;   // candles for volume avg
 
 ---
 
+## Deploy
+
+- This is a standard Next.js app and deploys to Vercel with zero config.
+- All Binance calls run server-side via API routes, so browser CORS is not a blocker.
+- Set env vars in Vercel project settings (only if you plan to use private account endpoints).
+- On the free Vercel plan, 10s function timeout is usually fine with cache hits, but cold starts with heavier fetches can be tight.
+
+---
+
+## Roadmap
+
+- [ ] WebSocket streaming for real-time price and volume (replace 60s polling)
+- [ ] Signal change alerts via Notification API or Telegram webhook
+- [ ] Custom symbol input (beyond the 4 hardcoded Binance pairs)
+- [ ] Persisted cache with Redis (survive restarts and share across instances)
+- [ ] Extra regime indicators: ATR volatility and Bollinger Band width
+- [ ] Multi-exchange adapters (Bybit, OKX)
+
+---
+
 ## Sanity Check
 
 After running `pnpm dev`, cross-check values against TradingView:
@@ -416,3 +482,9 @@ Minor differences are expected due to candle history depth and EMA seed. RSI sho
 - **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
 - **Tests:** 38 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine.
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
