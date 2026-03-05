@@ -203,9 +203,18 @@ Returns the last 100 OHLCV bars formatted for TradingView Lightweight Charts:
 ### `GET /api/symbols` / `GET /api/timeframes`
 
 ```json
-["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"]
+["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "AVAXUSDT", "..."]
 ["15m", "1h", "4h", "1d"]
 ```
+
+50 symbols are configured by default, organized by category in `lib/config.ts`:
+- **L1 majors** — BTC, ETH, BNB, SOL, ADA, AVAX, DOT, NEAR, ATOM, APT, SUI, SEI, TON, TRX, MATIC, ICP, ALGO, VET, HBAR, XLM, KAS, TIA
+- **L2 / rollups** — ARB, OP, STX
+- **DeFi** — UNI, AAVE, MKR, CRV, COMP, LDO, RUNE, INJ, PENDLE
+- **AI / Data** — FET, RNDR, TAO, WLD, AGIX
+- **Infrastructure** — LINK, FIL, SAND, MANA
+- **Meme / high-volume** — DOGE, SHIB, PEPE, FLOKI
+- **Other** — LTC, JUP, PYTH, ENA
 
 ---
 
@@ -421,7 +430,7 @@ Reference scale:
 Edit `lib/config.ts`:
 
 ```ts
-export const SYMBOLS    = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
+export const SYMBOLS    = ["BTCUSDT", "ETHUSDT", ..., "ENAUSDT"]; // 50 symbols, see lib/config.ts
 export const TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 ```
 
@@ -459,7 +468,7 @@ export const VOLUME_LOOKBACK          = 20;   // candles for volume avg
 
 - [ ] WebSocket streaming for real-time price and volume (replace 60s polling)
 - [ ] Signal change alerts via Notification API or Telegram webhook
-- [ ] Custom symbol input (beyond the 4 hardcoded Binance pairs)
+- [ ] Custom symbol input (user-defined pairs beyond the 50 configured defaults)
 - [ ] Persisted cache with Redis (survive restarts and share across instances)
 - [ ] Extra regime indicators: ATR volatility and Bollinger Band width
 - [ ] Multi-exchange adapters (Bybit, OKX)

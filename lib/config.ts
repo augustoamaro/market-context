@@ -1,4 +1,29 @@
-export const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
+export const SYMBOLS = [
+  // Layer 1 majors
+  "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "AVAXUSDT",
+  "DOTUSDT", "NEARUSDT", "ATOMUSDT", "APTUSDT", "SUIUSDT", "SEIUSDT",
+  "TONUSDT", "TRXUSDT", "MATICUSDT", "ICPUSDT", "ALGOUSDT", "VETUSDT",
+  "HBARUSDT", "XLMUSDT", "KASUSDT", "TIAUSDT",
+
+  // Layer 2 / rollups
+  "ARBUSDT", "OPUSDT", "STXUSDT",
+
+  // DeFi
+  "UNIUSDT", "AAVEUSDT", "MKRUSDT", "CRVUSDT", "COMPUSDT",
+  "LDOUSDT", "RUNEUSDT", "INJUSDT", "PENDLEUSDT",
+
+  // AI / Data
+  "FETUSDT", "RNDRUSDT", "TAOUSDT", "WLDUSDT", "AGIXUSDT",
+
+  // Infrastructure / Other
+  "LINKUSDT", "FILUSDT", "SANDUSDT", "MANAUSDT",
+
+  // Meme / high-volume
+  "DOGEUSDT", "SHIBUSDT", "PEPEUSDT", "FLOKIUSDT",
+
+  // Derivatives / Liquid staking
+  "LTCUSDT", "JUPUSDT", "PYTHUSDT", "ENAUSDT",
+];
 
 export const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
 

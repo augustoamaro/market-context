@@ -2,9 +2,7 @@
 
 import { formatPrice, formatPct } from "@/lib/format";
 import { LayoutGrid } from "lucide-react";
-
-const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
-const TIMEFRAMES = ["15m", "1h", "4h", "1d"];
+import { TIMEFRAMES } from "@/lib/config";
 
 interface HeaderProps {
   symbol: string;

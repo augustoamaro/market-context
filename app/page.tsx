@@ -79,6 +79,7 @@ export default function DashboardPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [load]);
 
+
   // Derive activeCtx from cache when timeframe changes — no network call
   useEffect(() => {
     if (allContexts.length === 0) return;
@@ -103,7 +104,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
-      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} />
+      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} timeframe={timeframe} />
 
       <div className="flex flex-1 flex-col overflow-hidden relative">
         <Header

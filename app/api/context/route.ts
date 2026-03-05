@@ -30,10 +30,15 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-    const settled = await Promise.allSettled(
-      requested.map((s) => buildMarketContext(s, timeframe))
-    );
-    const results = settled
+    // Process in chunks of 50 to avoid overwhelming Binance on cold start
+    const CHUNK_SIZE = 50;
+    const allSettled: PromiseSettledResult<Awaited<ReturnType<typeof buildMarketContext>>>[] = [];
+    for (let i = 0; i < requested.length; i += CHUNK_SIZE) {
+      const chunk = requested.slice(i, i + CHUNK_SIZE);
+      const settled = await Promise.allSettled(chunk.map((s) => buildMarketContext(s, timeframe)));
+      allSettled.push(...settled);
+    }
+    const results = allSettled
       .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof buildMarketContext>>> => r.status === "fulfilled")
       .map((r) => r.value);
     return NextResponse.json(results);
