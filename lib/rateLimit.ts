@@ -2,6 +2,8 @@
 // Works for self-hosted (next start). On Vercel edge/serverless each instance
 // has its own memory, so this provides best-effort protection.
 
+import { RATE_LIMIT_RPM } from "@/lib/config";
+
 const windows = new Map<string, number[]>();
 
 // Periodically prune stale entries to avoid unbounded growth
@@ -16,7 +18,7 @@ setInterval(() => {
 
 export function isRateLimited(
   ip: string,
-  limit = 30,
+  limit = RATE_LIMIT_RPM,
   windowMs = 60_000
 ): boolean {
   const now = Date.now();

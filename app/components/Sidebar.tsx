@@ -221,10 +221,10 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
             const isUp = pct !== null ? pct >= 0 : null;
 
             return (
-              <button
+              <div
                 key={sym}
                 onClick={() => onSymbolChange(sym)}
-                className={`group w-full text-left px-3.5 py-2.5 border-l-2 transition-colors relative ${
+                className={`group w-full text-left px-3.5 py-2.5 border-l-2 transition-colors relative cursor-pointer ${
                   isActive
                     ? "bg-white/[0.04] border-primary"
                     : "border-transparent hover:bg-white/[0.02] hover:border-white/10"
@@ -277,7 +277,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
                     </span>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

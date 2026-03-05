@@ -44,5 +44,11 @@ export const CANDLE_LIMIT =
 export const RANGE_LOOKBACK = 20;
 export const VOLUME_LOOKBACK = 20;
 
+// Rate limit: requests per minute per IP.
+// On load the dashboard fires ~6 requests simultaneously (4 timeframes + ticker + scan).
+// 120 gives comfortable headroom for normal usage and rapid dev reloads.
+export const RATE_LIMIT_RPM =
+  parseInt(process.env.RATE_LIMIT_RPM ?? "120", 10);
+
 export const EXPANSION_VOLUME_RATIO = 1.3;
 export const EQUILIBRIUM_VOLUME_RATIO = 1.0;

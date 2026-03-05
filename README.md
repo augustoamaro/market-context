@@ -82,6 +82,7 @@ Open: `http://localhost:3000`
 | `BINANCE_BASE_URL` | No | `https://api.binance.com` | Binance base URL |
 | `CACHE_TTL_SECONDS` | No | `60` | In-memory cache TTL per symbol/timeframe |
 | `DEFAULT_LIMIT` | No | `500` | Candles fetched per request (500 gives EMA-200 ~300 candles of convergence, ±0.3% from TradingView) |
+| `RATE_LIMIT_RPM` | No | `120` | Max API requests per minute per IP. The dashboard fires ~6 requests on load; 120 gives headroom for normal use and dev reloads |
 
 `/api/context` and `/api/candles` use public OHLCV endpoints and work with zero credentials.
 `BINANCE_SECRET` is kept for private-account features and is not required to run the current dashboard UI.
