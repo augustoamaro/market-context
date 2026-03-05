@@ -20,9 +20,12 @@ export async function buildMarketContext(
   const closes = candles.map((c) => c.close);
   const price  = closes[closes.length - 1];
 
-  // Price change % vs open of current candle
-  const open   = candles[candles.length - 1].open;
-  const priceChangePct = ((price - open) / open) * 100;
+  // 24h change: find the candle whose openTime is closest to 24h ago
+  const currentOpenTime = candles[candles.length - 1].openTime;
+  const target24h = currentOpenTime - 24 * 60 * 60 * 1000;
+  const idx24h = candles.findIndex((c) => c.openTime >= target24h);
+  const close24hAgo = idx24h > 0 ? candles[idx24h].close : candles[0].close;
+  const priceChangePct = ((price - close24hAgo) / close24hAgo) * 100;
 
   const ema20  = ema(closes, 20);
   const ema50  = ema(closes, 50);

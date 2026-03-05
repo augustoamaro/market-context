@@ -9,7 +9,7 @@ Part of the **HardStop Trading Tools**: a set of practical market-analysis syste
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
-![Tests](https://img.shields.io/badge/tests-45%20passing-brightgreen?logo=vitest)
+![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen?logo=vitest)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Preview
@@ -53,7 +53,7 @@ Open: `http://localhost:3000`
 | `pnpm dev` | Start dev server at `localhost:3000` |
 | `pnpm build` | Production build |
 | `pnpm start` | Start production server |
-| `pnpm test` | Run all 45 unit tests (Vitest) |
+| `pnpm test` | Run all 52 unit tests (Vitest) |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm test:coverage` | Run tests with v8 coverage report |
 | `pnpm lint` | Run ESLint |
@@ -69,7 +69,7 @@ Open: `http://localhost:3000`
 | Indicators | EMA, RSI (Wilder), Volume Ratio, Price Range, MACD |
 | Charts | TradingView Lightweight Charts v5 |
 | Animations | Framer Motion |
-| Tests | Vitest (45 tests) |
+| Tests | Vitest (52 tests) |
 
 ---
 
@@ -81,7 +81,7 @@ Open: `http://localhost:3000`
 | `BINANCE_SECRET` | Optional | — | Only for HMAC-signed private endpoints (`lib/binance/signedClient.ts`, `/api/account`) |
 | `BINANCE_BASE_URL` | No | `https://api.binance.com` | Binance base URL |
 | `CACHE_TTL_SECONDS` | No | `60` | In-memory cache TTL per symbol/timeframe |
-| `DEFAULT_LIMIT` | No | `300` | Candles fetched per request (300 needed for EMA-200 stability) |
+| `DEFAULT_LIMIT` | No | `500` | Candles fetched per request (500 gives EMA-200 ~300 candles of convergence, ±0.3% from TradingView) |
 
 `/api/context` and `/api/candles` use public OHLCV endpoints and work with zero credentials.
 `BINANCE_SECRET` is kept for private-account features and is not required to run the current dashboard UI.
@@ -106,6 +106,7 @@ market-context/
 │   │   ├── candles/route.ts          # GET /api/candles  — raw OHLCV for chart
 │   │   ├── context/route.ts          # GET /api/context  — single or chunked batch (50/chunk)
 │   │   ├── ticker/route.ts           # GET /api/ticker   — lightweight 24h price + change
+│   │   ├── validate/route.ts         # GET /api/validate — indicator cross-check vs TradingView
 │   │   ├── symbols/route.ts          # GET /api/symbols
 │   │   └── timeframes/route.ts       # GET /api/timeframes
 │   │
@@ -211,6 +212,22 @@ Returns the last 100 OHLCV bars formatted for TradingView Lightweight Charts:
 
 ```json
 [{ "time": 1709640000, "open": 71200, "high": 73100, "low": 70900, "close": 72917 }]
+```
+
+### `GET /api/validate?symbol=BTCUSDT&timeframe=4h`
+
+Debug endpoint for cross-checking computed indicators against TradingView. Returns raw candle data, all computed indicator values, candle progress %, and warnings about potential divergence.
+
+```json
+{
+  "symbol": "BTCUSDT", "timeframe": "4h", "candleCount": 500,
+  "lastClosed": { "open": 84200, "high": 85100, "low": 83900, "close": 84750, "volume": 1234.5 },
+  "current":    { "open": 84750, "close": 84820, "progressPct": 62 },
+  "computed":   { "ema20": 84320.1, "ema50": 82100.4, "ema200": 71500.8, "rsi14": 61.4,
+                  "volumeRatioPct": 138, "macdHistogram": 30.3, "priceChangePct24h": 1.75 },
+  "howToVerify": ["1. Open TradingView → BTCUSDT → 4h", "2. Add EMA(20/50/200), RSI(14), MACD(12,26,9)", "..."],
+  "warnings": ["Current candle is 62% complete — values will change at close"]
+}
 ```
 
 ### `GET /api/symbols` / `GET /api/timeframes`
@@ -512,17 +529,21 @@ export const VOLUME_LOOKBACK          = 20;   // candles for volume avg
 
 ## Sanity Check
 
-After running `pnpm dev`, cross-check values against TradingView:
-
-1. Open TradingView → select symbol → select timeframe
-2. Add EMA(20), EMA(50), EMA(200), RSI(14), MACD(12,26,9)
-3. Compare with:
+After running `pnpm dev`, use the validate endpoint to cross-check all computed values against TradingView in one call:
 
 ```bash
-curl "http://localhost:3000/api/context?symbol=BTCUSDT&timeframe=4h"
+curl "http://localhost:3000/api/validate?symbol=BTCUSDT&timeframe=4h" | jq .
 ```
 
-Minor differences are expected due to candle history depth and EMA seed. RSI should match within ±0.5 with 300 candles. MACD histogram may differ by a small amount for the same reason.
+The response includes the last closed candle OHLCV, all indicator values, candle progress %, and explicit warnings if anything looks off (e.g. EMA seed depth, partial candle).
+
+Compare `lastClosed` + `computed` values against TradingView with EMA(20/50/200), RSI(14), MACD(12,26,9), and Volume MA(20) enabled.
+
+**Expected accuracy with 500 candles:**
+- EMA(200): within ±0.3% of TradingView
+- RSI(14): within ±0.3
+- MACD histogram: within ±0.5% of value
+- `priceChangePct24h`: matches Binance 24h ticker within ±0.1% (slight difference at exact 24h boundary)
 
 ---
 
@@ -532,7 +553,7 @@ Minor differences are expected due to candle history depth and EMA seed. RSI sho
 - **Rate limiting:** sliding window per IP — 30 req/min on market data endpoints, 10 req/min on account.
 - **Batch chunking:** `/api/context` batch mode processes up to 500 symbols in chunks of 50 to avoid overwhelming Binance on cold start. After the 60s cache warms up, subsequent scans are served entirely from memory.
 - **Watchlist:** favorites are persisted in `localStorage`. Ticker prices refresh every 30s via `/api/ticker` (lightweight — no candles fetched). Best-setup star scans all configured symbols every 60s in 50-symbol chunks.
-- **Tests:** 45 unit tests covering EMA, RSI, MACD, market state classification, and the full decision engine (including per-dimension volume scoring).
+- **Tests:** 52 unit tests covering EMA, RSI, MACD, volume normalization, market state classification, and the full decision engine (including per-dimension volume scoring).
 - **Error boundary:** `app/error.tsx` catches runtime errors and shows a recoverable error screen.
 
 ---
