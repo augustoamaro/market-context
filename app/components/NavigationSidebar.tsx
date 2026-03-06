@@ -55,16 +55,22 @@ export default function NavigationSidebar({
       </div>
 
       <div className="border-b px-4 py-4" style={{ borderColor: "var(--color-border)" }}>
-        <div className="rounded-xl border border-white/6 bg-bg/70 px-3.5 py-3">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Workspace</p>
-          <div className="mt-3 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[18px] font-semibold tracking-tight text-text">{symbol.replace("USDT", "")}</p>
-              <p className="text-[11px] text-text-muted">Execution view em {timeframe}</p>
+        <div className="rounded-xl border border-white/6 bg-bg/70 px-3.5 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-[15px] font-bold text-primary">
+              {symbol.replace("USDT", "").charAt(0)}
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-text-muted">
-              60s refresh
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold tracking-tight text-text">{symbol.replace("USDT", "")}</p>
+              <p className="text-[11px] text-text-muted">{symbol.replace("USDT", "")} / USDT · {timeframe}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-white/[0.03] px-2.5 py-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
             </span>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Live · 60s refresh</span>
           </div>
         </div>
       </div>
