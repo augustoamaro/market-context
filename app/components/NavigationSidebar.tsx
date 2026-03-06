@@ -46,7 +46,7 @@ export default function NavigationSidebar({
       style={{ borderColor: "var(--color-border)" }}
     >
       <div
-        className="flex items-center justify-between border-b px-4 py-3.5"
+        className="flex items-center justify-between border-b px-4 h-[57px]"
         style={{ borderColor: "var(--color-border)" }}
       >
         <div className="flex items-center gap-2.5">
@@ -83,18 +83,16 @@ export default function NavigationSidebar({
             <button
               key={id}
               onClick={() => scrollToSection(id)}
-              className={`group flex min-w-[168px] items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors lg:min-w-0 ${
-                active
+              className={`group flex min-w-[168px] items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors lg:min-w-0 ${active
                   ? "border-primary/30 bg-primary/10"
                   : "border-white/6 bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
-              }`}
+                }`}
             >
               <div
-                className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                  active
+                className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${active
                     ? "bg-primary text-white"
                     : "bg-white/[0.04] text-text-muted group-hover:text-text"
-                }`}
+                  }`}
               >
                 <Icon className="size-4" />
               </div>

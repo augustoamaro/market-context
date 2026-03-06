@@ -241,14 +241,14 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
         style={{ borderColor: "var(--color-border)" }}
       >
         {/* Watchlist header */}
-        <div className="border-b px-4 py-3.5" style={{ borderColor: "var(--color-border)" }}>
-          <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center border-b px-4 h-[57px]" style={{ borderColor: "var(--color-border)" }}>
+          <div className="flex items-center justify-between gap-3 w-full">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted leading-none">
                 Watchlist
               </p>
-              <p className="mt-1 text-[12px] text-text-muted/75">
-                Seleção rápida de símbolos e scan global
+              <p className="mt-1 text-[11px] text-text-muted/75 leading-none">
+                Seleção rápida de símbolos e scan
               </p>
             </div>
             <button
@@ -302,11 +302,10 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
               <div
                 key={sym}
                 onClick={() => onSymbolChange(sym)}
-                className={`group w-full text-left px-3.5 py-2.5 border-l-2 transition-colors relative cursor-pointer ${
-                  isActive
+                className={`group w-full text-left px-3.5 py-2.5 border-l-2 transition-colors relative cursor-pointer ${isActive
                     ? "bg-white/[0.04] border-primary"
                     : "border-transparent hover:bg-white/[0.02] hover:border-white/10"
-                }`}
+                  }`}
               >
                 {/* Remove on hover */}
                 <button
@@ -434,9 +433,8 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
                         <span className="text-text-muted/40 font-normal text-[13px]">/USDT</span>
                       </div>
                       {isTop && (
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${
-                          topSetup.bias === "LONG" ? "text-success bg-success/10" : "text-danger bg-danger/10"
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${topSetup.bias === "LONG" ? "text-success bg-success/10" : "text-danger bg-danger/10"
+                          }`}>
                           <Star className="size-2.5" fill="currentColor" strokeWidth={0} />
                           {topSetup.bias} · {topSetup.qualityScore}
                         </span>
