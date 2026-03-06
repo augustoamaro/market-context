@@ -8,7 +8,7 @@ import { contextToMultiTFRow } from "@/lib/topSetup";
 import Header from "./components/Header";
 import CurrentSignalCard from "./components/CurrentSignalCard";
 import CandleChart from "./components/CandleChart";
-import NavigationSidebar from "./components/NavigationSidebar";
+import NavigationSidebar, { type SectionId } from "./components/NavigationSidebar";
 import WatchlistSidebar from "./components/Sidebar";
 import MarketContextCard from "./components/MarketContextCard";
 import SetupReadinessCard from "./components/SetupReadinessCard";
@@ -27,6 +27,7 @@ async function fetchContext(symbol: string, timeframe: string): Promise<MarketCo
 }
 
 export default function DashboardPage() {
+  const [section, setSection] = useState<SectionId>("overview");
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [timeframe, setTimeframe] = useState("4h");
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg lg:h-screen lg:flex-row lg:overflow-hidden">
-      <NavigationSidebar symbol={symbol} timeframe={timeframe} />
+      <NavigationSidebar symbol={symbol} timeframe={timeframe} activeId={section} onNavigate={setSection} />
 
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
@@ -121,23 +122,26 @@ export default function DashboardPage() {
         />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div id="overview" className="mx-auto max-w-[1280px]">
+          <div className="mx-auto max-w-[1280px]">
             <motion.div
+              key={section}
               variants={containerVariants}
               initial="hidden"
               animate="show"
               className="space-y-6"
             >
-              <motion.div id="current-state" variants={itemVariants}>
-                <CurrentSignalCard
-                  globalDecision={globalDecision}
-                  executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
-                  loading={loading}
-                />
-              </motion.div>
+              {(section === "overview" || section === "current-state") && (
+                <motion.div variants={itemVariants}>
+                  <CurrentSignalCard
+                    globalDecision={globalDecision}
+                    executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
+                    loading={loading}
+                  />
+                </motion.div>
+              )}
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <motion.div id="market-context" variants={itemVariants}>
+              {(section === "overview" || section === "market-context") && (
+                <motion.div variants={itemVariants}>
                   <MarketContextCard
                     globalDecision={globalDecision}
                     rows={allRows}
@@ -146,54 +150,60 @@ export default function DashboardPage() {
                     error={error}
                   />
                 </motion.div>
+              )}
 
-                <motion.div id="setup-readiness" variants={itemVariants}>
+              {(section === "overview" || section === "setup-readiness") && (
+                <motion.div variants={itemVariants}>
                   <SetupReadinessCard
                     globalDecision={globalDecision}
                     loading={loading}
                   />
                 </motion.div>
-              </div>
+              )}
 
-              <motion.div id="execution" variants={itemVariants}>
-                <ExecutionPlanCard
-                  globalDecision={globalDecision}
-                  loading={loading}
-                />
-              </motion.div>
+              {(section === "overview" || section === "execution") && (
+                <motion.div variants={itemVariants}>
+                  <ExecutionPlanCard
+                    globalDecision={globalDecision}
+                    loading={loading}
+                  />
+                </motion.div>
+              )}
 
-              <motion.div id="chart" variants={itemVariants}>
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
-                          Chart
-                        </p>
-                        <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
-                          The chart confirms the engine verdict instead of competing with it.
-                        </p>
-                      </div>
-
-                      {activeCtx && (
-                        <div className="flex flex-wrap gap-2">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                            View {timeframe}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                            Price {activeCtx.price}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                            Range {Math.round(activeCtx.pricePositionPct)}%
-                          </span>
+              {(section === "overview" || section === "chart") && (
+                <motion.div variants={itemVariants}>
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
+                            Chart
+                          </p>
+                          <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
+                            The chart confirms the engine verdict instead of competing with it.
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <CandleChart symbol={symbol} timeframe={timeframe} />
-                </div>
-              </motion.div>
+                        {activeCtx && (
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                              View {timeframe}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                              Price {activeCtx.price}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                              Range {Math.round(activeCtx.pricePositionPct)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <CandleChart symbol={symbol} timeframe={timeframe} />
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </main>

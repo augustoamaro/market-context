@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   LayoutDashboard,
   Layers3,
@@ -10,7 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-const menuItems = [
+export const menuItems = [
   { id: "overview", label: "Overview", hint: "Resumo do contexto", Icon: LayoutDashboard },
   { id: "current-state", label: "Current State", hint: "Veredito e explicacao", Icon: Radio },
   { id: "market-context", label: "Market Context", hint: "Regime, range e consenso", Icon: Layers3 },
@@ -19,28 +18,21 @@ const menuItems = [
   { id: "chart", label: "Chart", hint: "Execucao visual", Icon: LineChart },
 ] as const;
 
+export type SectionId = (typeof menuItems)[number]["id"];
+
 interface NavigationSidebarProps {
   symbol: string;
   timeframe: string;
+  activeId: SectionId;
+  onNavigate: (id: SectionId) => void;
 }
 
 export default function NavigationSidebar({
   symbol,
   timeframe,
+  activeId,
+  onNavigate,
 }: NavigationSidebarProps) {
-  const [activeId, setActiveId] = useState<(typeof menuItems)[number]["id"]>("overview");
-
-  function scrollToSection(id: (typeof menuItems)[number]["id"]) {
-    setActiveId(id);
-    const element = document.getElementById(id);
-    const main = document.querySelector("main");
-    if (element && main) {
-      const topPos = element.getBoundingClientRect().top + main.scrollTop - main.getBoundingClientRect().top - 24;
-      main.scrollTo({ top: topPos, behavior: "smooth" });
-    } else if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
 
   return (
     <aside
@@ -84,7 +76,7 @@ export default function NavigationSidebar({
           return (
             <button
               key={id}
-              onClick={() => scrollToSection(id)}
+              onClick={() => onNavigate(id)}
               className={`group flex min-w-[168px] items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors lg:min-w-0 ${active
                 ? "border-primary/30 bg-primary/10"
                 : "border-white/6 bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
@@ -109,16 +101,6 @@ export default function NavigationSidebar({
             </button>
           );
         })}
-      </div>
-
-      <div className="hidden px-4 pb-4 pt-2 lg:block">
-        <div className="rounded-xl border border-dashed border-white/8 bg-white/[0.02] px-3.5 py-3">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Notes</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-text-muted/75">
-            A navegação da esquerda agora segue a lógica do produto:
-            estado, contexto, readiness, execução e gráfico.
-          </p>
-        </div>
       </div>
     </aside>
   );

@@ -85,7 +85,7 @@ export default function MarketContextCard({
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 grid-cols-2">
+      <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
         <ContextCell
           title="Regime"
           value={context.regime.label}

@@ -87,7 +87,7 @@ export default function SetupReadinessCard({ globalDecision, loading }: Props) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <SetupBlock
           title="Liquidity"
           value={setup.liquidity.label}
