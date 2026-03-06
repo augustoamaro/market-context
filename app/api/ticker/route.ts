@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SYMBOLS, BINANCE_BASE_URL, BINANCE_API_KEY } from "@/lib/config";
+import { SYMBOLS } from "@/lib/config";
+import { fetchTicker24h } from "@/lib/binance/client";
 import { isRateLimited } from "@/lib/rateLimit";
 
 export async function GET(req: NextRequest) {
@@ -22,32 +23,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const url = new URL(`${BINANCE_BASE_URL}/api/v3/ticker/24hr`);
-  url.searchParams.set("symbols", JSON.stringify(requested));
-
-  const headers: Record<string, string> = {};
-  if (BINANCE_API_KEY) headers["X-MBX-APIKEY"] = BINANCE_API_KEY;
-
   try {
-    const res = await fetch(url.toString(), {
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(8_000),
-      headers,
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ error: `Binance error: ${res.status}` }, { status: 502 });
-    }
-
-    const data: Record<string, string>[] = await res.json();
-    const trimmed = data.map((d) => ({
-      symbol: d.symbol,
-      lastPrice: d.lastPrice,
-      priceChange: d.priceChange,
-      priceChangePercent: d.priceChangePercent,
-    }));
-
-    return NextResponse.json(trimmed);
+    const data = await fetchTicker24h(requested);
+    return NextResponse.json(requested.map((symbol) => data[symbol]).filter(Boolean));
   } catch {
     return NextResponse.json({ error: "Failed to fetch ticker" }, { status: 502 });
   }

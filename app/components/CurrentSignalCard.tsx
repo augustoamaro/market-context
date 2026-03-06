@@ -45,6 +45,8 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
   const labelColor = labelClass(globalDecision.label);
   const showSize = globalDecision.positionSizeModifier > 0;
   const sizePct = Math.round(globalDecision.positionSizeModifier * 100);
+  const consensusScore = Math.round(globalDecision.consensus.weightedScore);
+  const confidenceScore = Math.abs(consensusScore);
 
   function handleSave() {
     if (!executionCtx || !globalDecision) return;
@@ -63,7 +65,10 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
       rsi: executionCtx.rsi14,
       macdHistogram: executionCtx.macdHistogram,
       volumeRatioPct: executionCtx.volumeRatioPct,
-      confidenceScore: Math.round(globalDecision.positionSizeModifier * 100),
+      confidenceScore,
+      consensusScore,
+      positionSizeModifier: globalDecision.positionSizeModifier,
+      signalMode: "confirmed",
       signal: globalDecision.signal,
       label: globalDecision.label,
     });

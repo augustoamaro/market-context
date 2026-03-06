@@ -8,10 +8,13 @@ export interface RangeResult {
 }
 
 export function priceRange(candles: OHLCV[], lookback: number = RANGE_LOOKBACK): RangeResult {
-  if (candles.length < lookback) {
-    throw new Error(`Not enough data for range: need ${lookback}, got ${candles.length}`);
+  if (candles.length < lookback + 1) {
+    throw new Error(`Not enough data for range: need ${lookback + 1}, got ${candles.length}`);
   }
-  const window = candles.slice(-lookback);
+
+  // Measure the latest close against the prior closed window so real breakouts
+  // can move above 100% / below 0%.
+  const window = candles.slice(-lookback - 1, -1);
   const high = Math.max(...window.map((c) => c.high));
   const low  = Math.min(...window.map((c) => c.low));
   const price = candles[candles.length - 1].close;

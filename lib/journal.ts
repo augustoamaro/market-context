@@ -51,7 +51,8 @@ export function exportSnapshots(): string {
   const headers: Array<keyof ContextSnapshot> = [
     "id", "timestamp", "pair", "timeframe", "regime", "trend",
     "rangePosition", "rsi", "macdHistogram", "volumeRatioPct",
-    "confidenceScore", "signal", "label", "decision", "result", "notes",
+    "confidenceScore", "consensusScore", "positionSizeModifier", "signalMode",
+    "signal", "label", "decision", "result", "notes",
   ];
 
   const escape = (val: unknown) => {

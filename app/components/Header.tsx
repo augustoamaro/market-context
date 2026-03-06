@@ -1,7 +1,6 @@
 "use client";
 
 import { formatPrice, formatPct } from "@/lib/format";
-import { LayoutGrid } from "lucide-react";
 import { TIMEFRAMES } from "@/lib/config";
 
 interface HeaderProps {
@@ -9,7 +8,6 @@ interface HeaderProps {
   timeframe: string;
   price: number;
   priceChangePct: number;
-  onSymbolChange: (s: string) => void;
   onTimeframeChange: (t: string) => void;
 }
 
@@ -18,7 +16,6 @@ export default function Header({
   timeframe,
   price,
   priceChangePct,
-  onSymbolChange,
   onTimeframeChange,
 }: HeaderProps) {
   return (

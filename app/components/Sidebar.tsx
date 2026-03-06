@@ -2,16 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Star, X, Plus } from "lucide-react";
-import { SYMBOLS } from "@/lib/config";
-import { computeDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
-import { MarketContext, Signal } from "@/types/market";
+import { SYMBOLS, TIMEFRAMES } from "@/lib/config";
+import { ContextBatchResponse, MarketContext } from "@/types/market";
 import { formatPrice } from "@/lib/format";
+import { pickTopGlobalSetup, TopSetup } from "@/lib/topSetup";
 
 const FAVORITES_KEY = "hsc_favorites";
 const DEFAULT_FAVORITES = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"];
 const TICKER_REFRESH_MS = 30_000;
 const SCAN_REFRESH_MS = 60_000;
-const MIN_SCORE_FOR_STAR = 60;
 
 interface TickerEntry {
   symbol: string;
@@ -20,10 +19,9 @@ interface TickerEntry {
   priceChangePercent: string;
 }
 
-interface TopSetup {
-  symbol: string;
-  signal: Signal;
-  confidenceScore: number;
+interface ScanDiagnostics {
+  failedSymbols: string[];
+  requestedCount: number;
 }
 
 function getFavorites(): string[] {
@@ -43,13 +41,16 @@ function saveFavorites(favs: string[]): void {
 interface SidebarProps {
   currentSymbol: string;
   onSymbolChange: (symbol: string) => void;
-  timeframe: string;
 }
 
-export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: SidebarProps) {
+export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps) {
   const [favorites, setFavorites] = useState<string[]>(DEFAULT_FAVORITES);
   const [ticker, setTicker] = useState<Record<string, TickerEntry>>({});
   const [topSetup, setTopSetup] = useState<TopSetup | null>(null);
+  const [scanDiagnostics, setScanDiagnostics] = useState<ScanDiagnostics>({
+    failedSymbols: [],
+    requestedCount: SYMBOLS.length,
+  });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -119,40 +120,77 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
     };
   }, [favorites, loadTicker]);
 
-  // Scan all symbols in chunks to find the best setup
+  async function loadContextBatch(timeframe: string, symbols: string[]): Promise<ContextBatchResponse> {
+    try {
+      const res = await fetch(`/api/context?symbols=${symbols.join(",")}&timeframe=${timeframe}&includeMeta=1`);
+      if (!res.ok) {
+        return {
+          timeframe,
+          results: [],
+          errors: symbols.map((symbol) => ({
+            symbol,
+            error: `HTTP ${res.status}`,
+          })),
+          requestedCount: symbols.length,
+          fulfilledCount: 0,
+          failedCount: symbols.length,
+        };
+      }
+
+      return res.json();
+    } catch {
+      return {
+        timeframe,
+        results: [],
+        errors: symbols.map((symbol) => ({
+          symbol,
+          error: "Network error",
+        })),
+        requestedCount: symbols.length,
+        fulfilledCount: 0,
+        failedCount: symbols.length,
+      };
+    }
+  }
+
+  // Scan all symbols across all timeframes to find the best global setup
   const scanBestSetup = useCallback(async () => {
     try {
-      const CHUNK = 50;
-      let best: TopSetup | null = null;
-      for (let i = 0; i < SYMBOLS.length; i += CHUNK) {
-        const chunk = SYMBOLS.slice(i, i + CHUNK);
-        const res = await fetch(`/api/context?symbols=${chunk.join(",")}&timeframe=${timeframe}`);
-        if (!res.ok) continue;
-        const contexts: MarketContext[] = await res.json();
-        for (const ctx of contexts) {
-          const row = {
-            timeframe: ctx.timeframe,
-            ema12: ctx.ema12,
-            ema20: ctx.ema20,
-            ema50: ctx.ema50,
-            ema200: ctx.ema200,
-            rsi14: ctx.rsi14,
-            volumeRatioX: ctx.volumeRatioPct / 100,
-            alignment: deriveAlignment(ctx.ema12, ctx.ema20, ctx.ema50, ctx.ema200),
-          };
-          const decision = computeDecision(ctx, [row], computeMultiTFConsensus([row]));
-          if (
-            (decision.signal === "UP" || decision.signal === "DOWN") &&
-            decision.confidenceScore >= MIN_SCORE_FOR_STAR &&
-            (best === null || decision.confidenceScore > best.confidenceScore)
-          ) {
-            best = { symbol: ctx.symbol, signal: decision.signal, confidenceScore: decision.confidenceScore };
+      const batches = await Promise.all(
+        TIMEFRAMES.map((tf) => loadContextBatch(tf, SYMBOLS))
+      );
+
+      const contextsBySymbol: Record<string, MarketContext[]> = {};
+      const failedSymbols = new Set<string>();
+
+      for (const batch of batches) {
+        for (const ctx of batch.results) {
+          if (!contextsBySymbol[ctx.symbol]) {
+            contextsBySymbol[ctx.symbol] = [];
           }
+          contextsBySymbol[ctx.symbol].push(ctx);
+        }
+
+        for (const error of batch.errors) {
+          failedSymbols.add(error.symbol);
         }
       }
-      setTopSetup(best);
+
+      for (const symbol of SYMBOLS) {
+        const contexts = contextsBySymbol[symbol] ?? [];
+        const available = new Set(contexts.map((ctx) => ctx.timeframe));
+        if (!TIMEFRAMES.every((tf) => available.has(tf))) {
+          failedSymbols.add(symbol);
+        }
+      }
+
+      setTopSetup(pickTopGlobalSetup(contextsBySymbol));
+      setScanDiagnostics({
+        failedSymbols: Array.from(failedSymbols).sort(),
+        requestedCount: SYMBOLS.length,
+      });
     } catch { /* non-critical */ }
-  }, [timeframe]);
+  }, []);
 
   useEffect(() => {
     const initialScan = setTimeout(() => {
@@ -228,6 +266,14 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
             <Plus className="size-3.5" />
           </button>
         </div>
+        {scanDiagnostics.failedSymbols.length > 0 && (
+          <div
+            className="px-4 pb-2 text-[10px] text-warn/80"
+            title={scanDiagnostics.failedSymbols.join(", ")}
+          >
+            Scan parcial: {scanDiagnostics.requestedCount - scanDiagnostics.failedSymbols.length}/{scanDiagnostics.requestedCount}
+          </div>
+        )}
 
         {/* Watchlist rows */}
         <div className="flex-1 overflow-y-auto">
@@ -273,7 +319,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
                     </span>
                     {isTop && (
                       <Star
-                        className={`size-3 ${topSetup.signal === "UP" ? "text-success" : "text-danger"}`}
+                        className={`size-3 ${topSetup.bias === "LONG" ? "text-success" : "text-danger"}`}
                         fill="currentColor"
                         strokeWidth={0}
                       />
@@ -383,10 +429,10 @@ export default function Sidebar({ currentSymbol, onSymbolChange, timeframe }: Si
                       </div>
                       {isTop && (
                         <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${
-                          topSetup.signal === "UP" ? "text-success bg-success/10" : "text-danger bg-danger/10"
+                          topSetup.bias === "LONG" ? "text-success bg-success/10" : "text-danger bg-danger/10"
                         }`}>
                           <Star className="size-2.5" fill="currentColor" strokeWidth={0} />
-                          {topSetup.signal} · {topSetup.confidenceScore}
+                          {topSetup.bias} · {topSetup.qualityScore}
                         </span>
                       )}
                     </div>

@@ -39,6 +39,20 @@ export interface MarketContext {
   updatedAt: string;
 }
 
+export interface ContextBatchError {
+  symbol: string;
+  error: string;
+}
+
+export interface ContextBatchResponse {
+  timeframe: string;
+  results: MarketContext[];
+  errors: ContextBatchError[];
+  requestedCount: number;
+  fulfilledCount: number;
+  failedCount: number;
+}
+
 export interface MultiTFRow {
   timeframe: string;
   ema12: number;
@@ -112,6 +126,9 @@ export interface ContextSnapshot {
   macdHistogram: number;
   volumeRatioPct: number;
   confidenceScore: number;
+  consensusScore?: number;
+  positionSizeModifier?: number;
+  signalMode?: "confirmed" | "preview";
   signal: string;
   label: string;
   decision?: "long" | "short" | "no_trade";

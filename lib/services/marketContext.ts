@@ -1,6 +1,11 @@
 import { fetchOHLCV } from "@/lib/binance/client";
 import { ema, rsi, volumeRatio, priceRange, classifyMarketState, macd } from "@/lib/indicators";
+import { splitClosedAndFormingCandles } from "@/lib/candles";
 import { MarketContext } from "@/types/market";
+
+interface BuildMarketContextOptions {
+  priceChangePct24h?: number;
+}
 
 function round(v: number, d: number) {
   const f = 10 ** d;
@@ -9,23 +14,26 @@ function round(v: number, d: number) {
 
 export async function buildMarketContext(
   symbol: string,
-  timeframe: string
+  timeframe: string,
+  options: BuildMarketContextOptions = {}
 ): Promise<MarketContext> {
-  const candles = await fetchOHLCV(symbol, timeframe);
+  const rawCandles = await fetchOHLCV(symbol, timeframe);
+  const { closed: candles } = splitClosedAndFormingCandles(rawCandles);
 
   if (candles.length < 201) {
     throw new Error(`Not enough candles for ${symbol}/${timeframe}: got ${candles.length}`);
   }
 
   const closes = candles.map((c) => c.close);
-  const price  = closes[closes.length - 1];
+  const lastClosed = candles[candles.length - 1];
+  const price = lastClosed.close;
 
-  // 24h change: find the candle whose openTime is closest to 24h ago
-  const currentOpenTime = candles[candles.length - 1].openTime;
-  const target24h = currentOpenTime - 24 * 60 * 60 * 1000;
-  const idx24h = candles.findIndex((c) => c.openTime >= target24h);
+  // 24h change based on the latest confirmed close, not the forming candle.
+  const target24h = lastClosed.closeTime - 24 * 60 * 60 * 1000;
+  const idx24h = candles.findIndex((c) => c.closeTime >= target24h);
   const close24hAgo = idx24h > 0 ? candles[idx24h].close : candles[0].close;
-  const priceChangePct = ((price - close24hAgo) / close24hAgo) * 100;
+  const fallbackPriceChangePct = ((price - close24hAgo) / close24hAgo) * 100;
+  const priceChangePct = options.priceChangePct24h ?? fallbackPriceChangePct;
 
   const ema12  = ema(closes, 12);
   const ema20  = ema(closes, 20);
@@ -66,6 +74,6 @@ export async function buildMarketContext(
     macdLine:         round(macdResult.macdLine, 2),
     macdSignal:       round(macdResult.signalLine, 2),
     macdHistogram:    round(macdResult.histogram, 2),
-    updatedAt:        new Date().toISOString(),
+    updatedAt:        new Date(lastClosed.closeTime).toISOString(),
   };
 }

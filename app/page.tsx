@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { GlobalDecision, MarketContext, MultiTFRow } from "@/types/market";
-import { computeGlobalDecision, computeMultiTFConsensus, deriveAlignment } from "@/lib/decision";
+import { computeGlobalDecision, computeMultiTFConsensus } from "@/lib/decision";
+import { contextToMultiTFRow } from "@/lib/topSetup";
 import Header from "./components/Header";
 import RegimeHeroCard from "./components/RegimeHeroCard";
 import RangePositionCard from "./components/RangePositionCard";
@@ -23,19 +24,6 @@ async function fetchContext(symbol: string, timeframe: string): Promise<MarketCo
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
   return res.json();
-}
-
-function contextToMultiTFRow(ctx: MarketContext): MultiTFRow {
-  return {
-    timeframe: ctx.timeframe,
-    ema12: ctx.ema12,
-    ema20: ctx.ema20,
-    ema50: ctx.ema50,
-    ema200: ctx.ema200,
-    rsi14: ctx.rsi14,
-    volumeRatioX: ctx.volumeRatioPct / 100,
-    alignment: deriveAlignment(ctx.ema12, ctx.ema20, ctx.ema50, ctx.ema200),
-  };
 }
 
 export default function DashboardPage() {
@@ -123,7 +111,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
-      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} timeframe={timeframe} />
+      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} />
 
       <div className="flex flex-1 flex-col overflow-hidden relative">
         <Header
@@ -131,7 +119,6 @@ export default function DashboardPage() {
           timeframe={timeframe}
           price={activeCtx?.price ?? 0}
           priceChangePct={activeCtx?.priceChangePct ?? 0}
-          onSymbolChange={setSymbol}
           onTimeframeChange={setTimeframe}
         />
 
