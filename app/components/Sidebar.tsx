@@ -274,7 +274,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
         </div>
         {scanDiagnostics.failedSymbols.length > 0 && (
           <div
-            className="px-4 pb-2 text-[10px] text-warn/80"
+            className="px-4 pb-3 pt-1 text-[10px] text-warn/80"
             title={scanDiagnostics.failedSymbols.join(", ")}
           >
             Scan parcial: {scanDiagnostics.requestedCount - scanDiagnostics.failedSymbols.length}/{scanDiagnostics.requestedCount}
@@ -303,8 +303,8 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
                 key={sym}
                 onClick={() => onSymbolChange(sym)}
                 className={`group w-full text-left px-3.5 py-2.5 border-l-2 transition-colors relative cursor-pointer ${isActive
-                    ? "bg-white/[0.04] border-primary"
-                    : "border-transparent hover:bg-white/[0.02] hover:border-white/10"
+                  ? "bg-white/[0.04] border-primary"
+                  : "border-transparent hover:bg-white/[0.02] hover:border-white/10"
                   }`}
               >
                 {/* Remove on hover */}
@@ -324,7 +324,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
                     </span>
                     {isTop && (
                       <Star
-                        className={`size-3 ${topSetup.bias === "LONG" ? "text-success" : "text-danger"}`}
+                        className={`size-3 ${topSetup.bias === "BULLISH" ? "text-success" : "text-danger"}`}
                         fill="currentColor"
                         strokeWidth={0}
                       />
@@ -433,7 +433,7 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
                         <span className="text-text-muted/40 font-normal text-[13px]">/USDT</span>
                       </div>
                       {isTop && (
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${topSetup.bias === "LONG" ? "text-success bg-success/10" : "text-danger bg-danger/10"
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${topSetup.bias === "BULLISH" ? "text-success bg-success/10" : "text-danger bg-danger/10"
                           }`}>
                           <Star className="size-2.5" fill="currentColor" strokeWidth={0} />
                           {topSetup.bias} · {topSetup.qualityScore}

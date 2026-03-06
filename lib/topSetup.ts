@@ -43,11 +43,13 @@ export function pickTopGlobalSetup(
     }
 
     const decision = computeGlobalDecision(rows, executionCtx, anchorCtx, consensus);
-    if (decision.signal !== "READY" || decision.bias === "NONE") {
+    if (decision.signal !== "READY" || decision.bias === "NEUTRAL") {
       continue;
     }
 
-    const qualityScore = Math.round(Math.abs(decision.consensus.weightedScore));
+    const qualityScore = Math.round(
+      (Math.abs(decision.consensus.weightedScore) * 0.45) + (decision.readinessScore * 0.55)
+    );
     const candidate: TopSetup = {
       symbol,
       signal: decision.signal,

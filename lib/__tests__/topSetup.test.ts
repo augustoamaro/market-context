@@ -35,7 +35,7 @@ function makeBullishSet(symbol: string): MarketContext[] {
 }
 
 describe("pickTopGlobalSetup()", () => {
-  it("prefers READY setups and ignores weaker WATCH setups", () => {
+  it("prefers READY setups and ignores weaker developing setups", () => {
     const btc = makeBullishSet("BTCUSDT");
     const eth = makeBullishSet("ETHUSDT").map((ctx) =>
       ctx.timeframe === "1h"
@@ -51,8 +51,8 @@ describe("pickTopGlobalSetup()", () => {
     expect(result).toEqual({
       symbol: "BTCUSDT",
       signal: "READY",
-      bias: "LONG",
-      qualityScore: 100,
+      bias: "BULLISH",
+      qualityScore: 92,
     });
   });
 
@@ -84,6 +84,6 @@ describe("pickTopGlobalSetup()", () => {
     });
 
     expect(result?.symbol).toBe("BTCUSDT");
-    expect(result?.qualityScore).toBe(100);
+    expect(result?.qualityScore).toBe(92);
   });
 });

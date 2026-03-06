@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, BookmarkPlus, Check, ChevronRight, Radio } from "lucide-react";
 import { GlobalDecision, MarketContext } from "@/types/market";
 import { saveSnapshot, updateSnapshot } from "@/lib/journal";
 import CardSkeleton from "./Skeleton";
-import { Radio, ChevronRight, BookmarkPlus, Check } from "lucide-react";
 
 interface Props {
   globalDecision: GlobalDecision | null;
@@ -12,24 +12,55 @@ interface Props {
   loading: boolean;
 }
 
-const signalStyles = {
-  READY: { text: "text-success", badge: "bg-success/10 text-success border-success/20" },
-  WATCH: { text: "text-warn", badge: "bg-warn/10 text-warn border-warn/20" },
-  WAIT: { text: "text-text-muted", badge: "bg-white/5 text-text-muted border-white/10" },
+type TradeDecision = "long" | "short" | "no_trade";
+
+const stateStyles = {
+  NO_TRADE: {
+    title: "text-text-muted",
+    badge: "bg-white/5 text-text-muted border-white/10",
+    glow: "from-white/8 via-white/3 to-transparent",
+  },
+  WAIT: {
+    title: "text-warn",
+    badge: "bg-warn/10 text-warn border-warn/20",
+    glow: "from-warn/12 via-warn/4 to-transparent",
+  },
+  LOOK_FOR_LONGS: {
+    title: "text-success",
+    badge: "bg-success/10 text-success border-success/20",
+    glow: "from-success/12 via-success/4 to-transparent",
+  },
+  LOOK_FOR_SHORTS: {
+    title: "text-danger",
+    badge: "bg-danger/10 text-danger border-danger/20",
+    glow: "from-danger/12 via-danger/4 to-transparent",
+  },
+  READY: {
+    title: "text-text",
+    badge: "bg-primary/15 text-text border-primary/20",
+    glow: "from-primary/18 via-primary/6 to-transparent",
+  },
 } as const;
 
 const biasStyles = {
-  LONG: "bg-success/10 text-success border-success/20",
-  SHORT: "bg-danger/10 text-danger border-danger/20",
-  NONE: "bg-white/5 text-text-muted border-white/10",
+  BULLISH: "bg-success/10 text-success border-success/20",
+  BEARISH: "bg-danger/10 text-danger border-danger/20",
+  NEUTRAL: "bg-white/5 text-text-muted border-white/10",
 } as const;
 
-type TradeDecision = "long" | "short" | "no_trade";
+const readinessLabel = {
+  NO_SETUP: "No setup",
+  CONTEXT_FORMING: "Context forming",
+  SETUP_DEVELOPING: "Setup developing",
+  EXECUTION_READY: "Execution-ready",
+} as const;
 
-function labelClass(label: string): string {
-  if (label.includes("HIGH")) return "text-success";
-  if (label.includes("NO TRADE")) return label.includes("Conflito") ? "text-danger" : "text-text-muted";
-  return "text-warn";
+function labelClass(signal: GlobalDecision["signal"], bias: GlobalDecision["bias"]): string {
+  if (signal === "NO_TRADE") return "text-text-muted";
+  if (signal === "WAIT") return "text-warn";
+  if (signal === "READY" && bias === "BEARISH") return "text-danger";
+  if (signal === "LOOK_FOR_SHORTS") return "text-danger";
+  return "text-success";
 }
 
 export default function CurrentSignalCard({ globalDecision, executionCtx, loading }: Props) {
@@ -38,39 +69,45 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
   const [justSaved, setJustSaved] = useState(false);
   const [duplicate, setDuplicate] = useState(false);
 
-  if (loading) return <CardSkeleton rows={4} height="h-56" />;
+  if (loading) return <CardSkeleton rows={5} height="h-72" />;
   if (!globalDecision) return null;
 
-  const signalStyle = signalStyles[globalDecision.signal];
-  const labelColor = labelClass(globalDecision.label);
-  const showSize = globalDecision.positionSizeModifier > 0;
-  const sizePct = Math.round(globalDecision.positionSizeModifier * 100);
-  const consensusScore = Math.round(globalDecision.consensus.weightedScore);
-  const confidenceScore = Math.abs(consensusScore);
+  const decision = globalDecision;
+
+  const stateStyle = stateStyles[decision.signal];
+  const biasStyle = biasStyles[decision.bias];
+  const readinessPct = Math.max(decision.readinessScore, 6);
+  const labelColor = labelClass(decision.signal, decision.bias);
+  const biasText =
+    decision.bias === "BULLISH"
+      ? "Bullish"
+      : decision.bias === "BEARISH"
+        ? "Bearish"
+        : "Neutral";
 
   function handleSave() {
-    if (!executionCtx || !globalDecision) return;
+    if (!executionCtx) return;
 
     const id = crypto.randomUUID();
     const saved = saveSnapshot({
       version: 1,
       id,
       timestamp: new Date().toISOString(),
-      contextHash: `${executionCtx.symbol}_${globalDecision.executionTF}_${globalDecision.bias}_${globalDecision.signal}_${globalDecision.label}`,
+      contextHash: `${executionCtx.symbol}_${decision.executionTF}_${decision.bias}_${decision.signal}_${decision.label}`,
       pair: executionCtx.symbol,
-      timeframe: globalDecision.executionTF,
+      timeframe: decision.executionTF,
       regime: executionCtx.marketState,
       trend: executionCtx.trend,
       rangePosition: Math.round(executionCtx.pricePositionPct),
       rsi: executionCtx.rsi14,
       macdHistogram: executionCtx.macdHistogram,
       volumeRatioPct: executionCtx.volumeRatioPct,
-      confidenceScore,
-      consensusScore,
-      positionSizeModifier: globalDecision.positionSizeModifier,
+      confidenceScore: decision.readinessScore,
+      consensusScore: Math.round(decision.consensus.weightedScore),
+      positionSizeModifier: decision.positionSizeModifier,
       signalMode: "confirmed",
-      signal: globalDecision.signal,
-      label: globalDecision.label,
+      signal: decision.signal,
+      label: decision.label,
     });
 
     if (!saved) {
@@ -91,114 +128,172 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
   }
 
   return (
-    <div className="bento-card hover:bento-card-hover rounded-xl p-6 sm:p-8 relative min-h-[320px] flex flex-col justify-between">
-      <div>
-        <div className="flex items-center gap-2 mb-6 pl-1">
-          <Radio className="size-4 text-text-muted animate-pulse" />
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.2em] text-text-muted">Current Signal</h2>
-        </div>
+    <div className="bento-card relative overflow-hidden rounded-2xl p-6 sm:p-8">
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${stateStyle.glow}`} />
 
-        <div className="mb-6 flex items-center justify-between gap-3 pl-1">
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${biasStyles[globalDecision.bias]}`}>
-            Global: {globalDecision.bias}
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
-            Execution TF: {globalDecision.executionTF}
-          </span>
-        </div>
+      <div className="relative z-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Radio className="size-4 text-text-muted" />
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
+              Current State
+            </h2>
+          </div>
 
-        <div className="flex items-end justify-between gap-4 mb-8 pl-1">
-          <p className={`text-6xl font-medium tracking-tighter leading-none ${signalStyle.text}`}>
-            {globalDecision.signal}
-          </p>
-
-          <div className="flex flex-col items-end gap-2">
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${signalStyle.badge}`}>
-              {globalDecision.signal}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${biasStyle}`}>
+              Bias: {biasText}
             </span>
-            <span className={`text-[11px] uppercase tracking-widest font-semibold text-right ${labelColor}`}>
-              {globalDecision.label}
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-text-muted">
+              {decision.executionTF} execution
             </span>
           </div>
         </div>
 
-        {showSize && (
-          <div className="mb-6 mx-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] text-text-muted uppercase tracking-[0.16em]">
-                Tamanho
-              </span>
-              <span className="text-[13px] font-mono text-text">
-                {sizePct}%
-              </span>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">State</p>
+                <h1 className={`mt-2 text-4xl font-semibold tracking-tight sm:text-5xl ${stateStyle.title}`}>
+                  {decision.signal}
+                </h1>
+              </div>
+
+              <div className="pb-1">
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${stateStyle.badge}`}>
+                  {decision.label}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Readiness</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-text">
+                  {decision.readinessScore}
+                  <span className="text-sm text-text-muted">/100</span>
+                </p>
+                <p className="mt-1 text-[11px] text-text-muted">
+                  {readinessLabel[decision.readinessStage]}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Regime</p>
+                <p className="mt-2 text-[18px] font-semibold tracking-tight text-text">
+                  {decision.context.regime.label}
+                </p>
+                <p className="mt-1 text-[11px] text-text-muted">
+                  Anchor {decision.context.anchorTimeframe}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Range Position</p>
+                <p className="mt-2 text-[18px] font-semibold tracking-tight text-text">
+                  {decision.context.rangePosition.label}
+                </p>
+                <p className="mt-1 text-[11px] text-text-muted">
+                  {decision.context.rangePosition.valuePct}% of range
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 flex items-end justify-between">
+                <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Readiness ladder</span>
+                <span className={`text-[12px] font-mono font-medium leading-none ${labelColor}`}>
+                  {decision.readinessScore}/100
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/6">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${decision.bias === "BULLISH"
+                      ? "bg-success"
+                      : decision.bias === "BEARISH"
+                        ? "bg-danger"
+                        : "bg-warn"
+                    }`}
+                  style={{ width: `${readinessPct}%` }}
+                />
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="h-[2px] w-full bg-white/5 rounded-full overflow-hidden mx-1">
-          <div
-            className={`h-full transition-all duration-1000 ease-out ${signalStyle.text.replace("text-", "bg-")}`}
-            style={{ width: `${Math.max(sizePct, 10)}%` }}
-          />
-        </div>
-      </div>
+          <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Why</p>
+            <ul className="mt-4 space-y-3">
+              {decision.reasons.map((reason) => (
+                <li key={reason} className="flex items-start gap-3 text-[13px] leading-relaxed text-text-muted">
+                  <ChevronRight className="mt-0.5 size-4 shrink-0 text-text-muted/50" />
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
 
-      {globalDecision.reasons.length > 0 && (
-        <ul className="mt-8 space-y-3 pl-1">
-          {globalDecision.reasons.map((reason, index) => (
-            <li key={index} className="flex items-start gap-3 text-[13px] text-text-muted leading-relaxed">
-              <ChevronRight className="size-4 text-text-muted/50 shrink-0 mt-0.5" />
-              <span>{reason}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {showDecision && (
-        <div className="mt-6 pt-5 border-t border-white/5">
-          <p className="text-[11px] text-text-muted uppercase tracking-widest mb-3">Trade Decision</p>
-          <div className="flex flex-wrap gap-2">
-            {(["long", "short", "no_trade"] as TradeDecision[]).map((decision) => (
-              <button
-                key={decision}
-                onClick={() => handleDecision(decision)}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-white/5 hover:bg-white/10 text-text-muted hover:text-text transition-colors"
-              >
-                {decision === "no_trade" ? "No Trade" : decision.charAt(0).toUpperCase() + decision.slice(1)}
-              </button>
-            ))}
-            <button
-              onClick={() => handleDecision(null)}
-              className="px-3 py-1.5 rounded-lg text-[12px] text-text-muted/40 hover:text-text-muted transition-colors"
-            >
-              Skip
-            </button>
+            {decision.warnings.length > 0 && (
+              <div className="mt-5 rounded-xl border border-warn/15 bg-warn/8 p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="size-4 text-warn" />
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-warn">Watchouts</p>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {decision.warnings.slice(0, 3).map((warning) => (
+                    <li key={warning} className="text-[12px] leading-relaxed text-warn/85">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {!showDecision && executionCtx && (
-        <div className="mt-6 pt-5 border-t border-white/5 flex justify-end">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 hover:bg-white/10 text-text-muted hover:text-text transition-colors"
-          >
-            {justSaved ? (
-              <>
-                <Check className="size-3.5 text-green-400" />
-                <span className="text-green-400">Saved</span>
-              </>
-            ) : duplicate ? (
-              <span className="text-text-muted/50">Already saved (60s cooldown)</span>
-            ) : (
-              <>
-                <BookmarkPlus className="size-3.5" />
-                <span>Save Snapshot</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
+        {showDecision ? (
+          <div className="mt-6 border-t border-white/6 pt-5">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Trade decision</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(["long", "short", "no_trade"] as TradeDecision[]).map((decision) => (
+                <button
+                  key={decision}
+                  onClick={() => handleDecision(decision)}
+                  className="rounded-lg bg-white/5 px-3 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-white/10 hover:text-text"
+                >
+                  {decision === "no_trade" ? "No Trade" : decision.charAt(0).toUpperCase() + decision.slice(1)}
+                </button>
+              ))}
+              <button
+                onClick={() => handleDecision(null)}
+                className="rounded-lg px-3 py-1.5 text-[12px] text-text-muted/50 transition-colors hover:text-text-muted"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        ) : executionCtx ? (
+          <div className="mt-6 flex justify-end border-t border-white/6 pt-5">
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-white/10 hover:text-text"
+            >
+              {justSaved ? (
+                <>
+                  <Check className="size-3.5 text-success" />
+                  <span className="text-success">Saved</span>
+                </>
+              ) : duplicate ? (
+                <span className="text-text-muted/50">Already saved (60s cooldown)</span>
+              ) : (
+                <>
+                  <BookmarkPlus className="size-3.5" />
+                  <span>Save Snapshot</span>
+                </>
+              )}
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

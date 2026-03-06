@@ -2,22 +2,20 @@
 
 import { useState } from "react";
 import {
-  Activity,
-  Compass,
-  Crosshair,
-  GitBranch,
   LayoutDashboard,
+  Layers3,
   LineChart,
   Radio,
+  ScanSearch,
+  ShieldCheck,
 } from "lucide-react";
 
 const menuItems = [
   { id: "overview", label: "Overview", hint: "Resumo do contexto", Icon: LayoutDashboard },
-  { id: "current-signal", label: "Current Signal", hint: "Bias e prontidao", Icon: Radio },
-  { id: "decision-logic", label: "Decision Logic", hint: "Checklist do motor", Icon: GitBranch },
-  { id: "trend-monitor", label: "Trend Monitor", hint: "Consenso multi-TF", Icon: Activity },
-  { id: "regime", label: "Regime", hint: "Estado do mercado", Icon: Compass },
-  { id: "range", label: "Range", hint: "Posicao no range", Icon: Crosshair },
+  { id: "current-state", label: "Current State", hint: "Veredito e explicacao", Icon: Radio },
+  { id: "market-context", label: "Market Context", hint: "Regime, range e consenso", Icon: Layers3 },
+  { id: "setup-readiness", label: "Setup Readiness", hint: "Liquidez, sweep e estrutura", Icon: ScanSearch },
+  { id: "execution", label: "Execution", hint: "Plano operacional", Icon: ShieldCheck },
   { id: "chart", label: "Chart", hint: "Execucao visual", Icon: LineChart },
 ] as const;
 
@@ -34,10 +32,14 @@ export default function NavigationSidebar({
 
   function scrollToSection(id: (typeof menuItems)[number]["id"]) {
     setActiveId(id);
-    document.getElementById(id)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    const element = document.getElementById(id);
+    const main = document.querySelector("main");
+    if (element && main) {
+      const topPos = element.getBoundingClientRect().top + main.scrollTop - main.getBoundingClientRect().top - 24;
+      main.scrollTo({ top: topPos, behavior: "smooth" });
+    } else if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   return (
@@ -84,14 +86,14 @@ export default function NavigationSidebar({
               key={id}
               onClick={() => scrollToSection(id)}
               className={`group flex min-w-[168px] items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors lg:min-w-0 ${active
-                  ? "border-primary/30 bg-primary/10"
-                  : "border-white/6 bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
+                ? "border-primary/30 bg-primary/10"
+                : "border-white/6 bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
                 }`}
             >
               <div
                 className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${active
-                    ? "bg-primary text-white"
-                    : "bg-white/[0.04] text-text-muted group-hover:text-text"
+                  ? "bg-primary text-white"
+                  : "bg-white/[0.04] text-text-muted group-hover:text-text"
                   }`}
               >
                 <Icon className="size-4" />
@@ -113,8 +115,8 @@ export default function NavigationSidebar({
         <div className="rounded-xl border border-dashed border-white/8 bg-white/[0.02] px-3.5 py-3">
           <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Notes</p>
           <p className="mt-2 text-[11px] leading-relaxed text-text-muted/75">
-            A watchlist agora fica do lado direito. Esta coluna da esquerda serve como
-            navegação rápida entre as seções do dashboard.
+            A navegação da esquerda agora segue a lógica do produto:
+            estado, contexto, readiness, execução e gráfico.
           </p>
         </div>
       </div>

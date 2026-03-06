@@ -242,7 +242,7 @@ describe("computeDecision()", () => {
 });
 
 describe("computeGlobalDecision()", () => {
-  it("returns READY LONG for long bias with favorable execution context", () => {
+  it("returns READY BULLISH for aligned context with high readiness", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -256,19 +256,20 @@ describe("computeGlobalDecision()", () => {
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.signal).toBe("READY");
-    expect(result.bias).toBe("LONG");
+    expect(result.bias).toBe("BULLISH");
+    expect(result.readinessScore).toBeGreaterThanOrEqual(76);
     expect(result.steps).toHaveLength(6);
     expect(result.steps.map((step) => step.id)).toEqual([
-      "mtf_conflict",
+      "bias",
       "regime",
-      "position",
-      "execution",
-      "volume",
-      "size",
+      "range",
+      "liquidity",
+      "structure",
+      "readiness",
     ]);
   });
 
-  it("returns WATCH LONG when execution context is mid-range", () => {
+  it("returns LOOK_FOR_LONGS when the directional bias exists but execution is not mature", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -283,13 +284,13 @@ describe("computeGlobalDecision()", () => {
 
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
-    expect(result.signal).toBe("WATCH");
-    expect(result.bias).toBe("LONG");
-    expect(result.steps.find((step) => step.id === "execution")?.status).toBe("warn");
-    expect(result.steps.find((step) => step.id === "size")?.status).toBe("bad");
+    expect(result.signal).toBe("LOOK_FOR_LONGS");
+    expect(result.bias).toBe("BULLISH");
+    expect(result.readinessStage).toBe("SETUP_DEVELOPING");
+    expect(result.execution?.allowed).toBe(false);
   });
 
-  it("returns WATCH LONG when execution RSI is overbought", () => {
+  it("keeps a bullish setup ready but exposes warnings when the execution context is stretched", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -304,11 +305,13 @@ describe("computeGlobalDecision()", () => {
 
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
-    expect(result.signal).toBe("WATCH");
-    expect(result.bias).toBe("LONG");
+    expect(result.signal).toBe("READY");
+    expect(result.bias).toBe("BULLISH");
+    expect(result.setup.confirmation.tone).toBe("warn");
+    expect(result.warnings.length).toBeGreaterThan(0);
   });
 
-  it("returns WAIT NONE for high conflict in expansion mid-range", () => {
+  it("returns NO_TRADE when high conflict blocks directional execution", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -327,13 +330,13 @@ describe("computeGlobalDecision()", () => {
 
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
-    expect(result.signal).toBe("WAIT");
-    expect(result.bias).toBe("NONE");
-    expect(result.steps.find((step) => step.id === "mtf_conflict")?.status).toBe("bad");
-    expect(result.steps.find((step) => step.id === "size")?.status).toBe("bad");
+    expect(result.signal).toBe("NO_TRADE");
+    expect(result.bias).toBe("NEUTRAL");
+    expect(result.steps.find((step) => step.id === "bias")?.status).toBe("bad");
+    expect(result.execution).toBeNull();
   });
 
-  it("returns WATCH NONE for high conflict range fade exception", () => {
+  it("keeps high-conflict equilibrium extremes as NO_TRADE until a directional edge appears", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -352,12 +355,13 @@ describe("computeGlobalDecision()", () => {
 
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
-    expect(result.signal).toBe("WATCH");
-    expect(result.bias).toBe("NONE");
-    expect(result.steps.find((step) => step.id === "size")?.details).toContain("25%");
+    expect(result.signal).toBe("NO_TRADE");
+    expect(result.bias).toBe("NEUTRAL");
+    expect(result.context.rangePosition.label).toBe("Low");
+    expect(result.execution).toBeNull();
   });
 
-  it("returns WAIT NONE when consensus itself is weak", () => {
+  it("returns NO_TRADE when consensus is too weak to create bias", () => {
     const rows = makeRows({
       "15m": "bullish",
       "1h": "bullish",
@@ -370,8 +374,8 @@ describe("computeGlobalDecision()", () => {
 
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
-    expect(result.signal).toBe("WAIT");
-    expect(result.bias).toBe("NONE");
+    expect(result.signal).toBe("NO_TRADE");
+    expect(result.bias).toBe("NEUTRAL");
   });
 
   it("uses anchor context for regime and range position steps", () => {
@@ -394,7 +398,8 @@ describe("computeGlobalDecision()", () => {
     const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
 
     expect(result.steps.find((step) => step.id === "regime")?.status).toBe("warn");
-    expect(result.steps.find((step) => step.id === "position")?.status).toBe("bad");
-    expect(result.steps.find((step) => step.id === "regime")?.details).toBe("Balanced auction");
+    expect(result.steps.find((step) => step.id === "range")?.status).toBe("bad");
+    expect(result.context.regime.label).toBe("Equilibrium");
+    expect(result.context.rangePosition.label).toBe("Mid");
   });
 });

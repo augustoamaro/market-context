@@ -2,8 +2,13 @@ export type Trend = "up" | "down" | "sideways";
 export type MarketState = "expansion" | "equilibrium";
 export type Alignment = "bullish" | "bearish" | "sideways";
 export type Signal = "UP" | "DOWN" | "WATCH" | "WAIT";
-export type GlobalSignal = "WAIT" | "WATCH" | "READY";
-export type GlobalBias = "LONG" | "SHORT" | "NONE";
+export type GlobalSignal =
+  | "NO_TRADE"
+  | "WAIT"
+  | "LOOK_FOR_LONGS"
+  | "LOOK_FOR_SHORTS"
+  | "READY";
+export type GlobalBias = "BULLISH" | "BEARISH" | "NEUTRAL";
 export type ConvictionLabel =
   | "HIGH CONVICTION"
   | "LOW CONVICTION"
@@ -15,6 +20,27 @@ export type ConsensusDirection = "bullish" | "bearish" | "mixed";
 export type ConflictLevel = "none" | "low" | "high";
 export type RecommendedAction = "LONG_BIAS" | "SHORT_BIAS" | "WAIT";
 export type PositionSizeModifier = 1 | 0.5 | 0.25;
+export type RangePositionLabel =
+  | "BREAKDOWN"
+  | "EXTREME_LOW"
+  | "LOW"
+  | "MID"
+  | "HIGH"
+  | "EXTREME_HIGH"
+  | "BREAKOUT";
+export type VolumeCondition = "STRONG" | "HEALTHY" | "LIGHT" | "WEAK";
+export type SetupStage =
+  | "NO_SETUP"
+  | "CONTEXT_FORMING"
+  | "SETUP_DEVELOPING"
+  | "EXECUTION_READY";
+export type SetupArchetype =
+  | "NONE"
+  | "RANGE_REVERSAL"
+  | "TREND_CONTINUATION"
+  | "FAILED_BREAKOUT"
+  | "COMPRESSION_EXPANSION"
+  | "SWEEP_STRUCTURE_SHIFT";
 
 export interface MarketContext {
   symbol: string;
@@ -83,6 +109,66 @@ export interface DecisionStep {
   details: string;
 }
 
+export interface EngineStatusBlock {
+  label: string;
+  detail: string;
+  tone: StepStatus;
+}
+
+export interface ContextLayer {
+  anchorTimeframe: string;
+  activeTimeframe: string;
+  regime: EngineStatusBlock;
+  rangePosition: EngineStatusBlock & {
+    zone: RangePositionLabel;
+    valuePct: number;
+  };
+  mtfConsensus: EngineStatusBlock & {
+    weightedScore: number;
+    htfBias: ConsensusDirection;
+    ltfBias: ConsensusDirection;
+    conflictLevel: ConflictLevel;
+  };
+  volume: EngineStatusBlock & {
+    condition: VolumeCondition;
+    ratioPct: number;
+  };
+}
+
+export interface SetupLayer {
+  liquidity: EngineStatusBlock;
+  sweep: EngineStatusBlock;
+  structure: EngineStatusBlock;
+  confirmation: EngineStatusBlock;
+  archetype: EngineStatusBlock & {
+    kind: SetupArchetype;
+  };
+}
+
+export interface ReadinessBreakdown {
+  biasAlignment: number;
+  rangePosition: number;
+  volume: number;
+  liquidity: number;
+  sweep: number;
+  structure: number;
+  executionTrigger: number;
+}
+
+export interface ExecutionPlan {
+  allowed: boolean;
+  emphasis: "secondary" | "primary";
+  entryModel: string;
+  trigger: string;
+  suggestedEntry: number | null;
+  invalidation: number | null;
+  target1: number | null;
+  target2: number | null;
+  rr: number | null;
+  suggestedRiskPct: number | null;
+  notes: string[];
+}
+
 export interface ScoreBreakdown {
   trend: number;    // 0–30
   regime: number;   // 0–20
@@ -107,9 +193,16 @@ export interface GlobalDecision {
   label: string;
   executionTF: string;
   positionSizeModifier: number;
+  readinessScore: number;
+  readinessStage: SetupStage;
   reasons: string[];
+  warnings: string[];
   steps: DecisionStep[];
   consensus: MultiTFConsensus;
+  context: ContextLayer;
+  setup: SetupLayer;
+  readinessBreakdown: ReadinessBreakdown;
+  execution: ExecutionPlan | null;
 }
 
 export interface ContextSnapshot {
