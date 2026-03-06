@@ -1,30 +1,37 @@
 "use client";
 
-import {
-  LayoutDashboard,
-  Layers3,
-  LineChart,
-  Radio,
-  ScanSearch,
-  ShieldCheck,
-} from "lucide-react";
-
-export const menuItems = [
-  { id: "overview", label: "Overview", hint: "Resumo do contexto", Icon: LayoutDashboard },
-  { id: "current-state", label: "Current State", hint: "Veredito e explicacao", Icon: Radio },
-  { id: "market-context", label: "Market Context", hint: "Regime, range e consenso", Icon: Layers3 },
-  { id: "setup-readiness", label: "Setup Readiness", hint: "Liquidez, sweep e estrutura", Icon: ScanSearch },
-  { id: "execution", label: "Execution", hint: "Plano operacional", Icon: ShieldCheck },
-  { id: "chart", label: "Chart", hint: "Execucao visual", Icon: LineChart },
-] as const;
-
-export type SectionId = (typeof menuItems)[number]["id"];
+import Image from "next/image";
+import { useState } from "react";
+import { dashboardSections, type SectionId } from "./dashboardSections";
 
 interface NavigationSidebarProps {
   symbol: string;
   timeframe: string;
   activeId: SectionId;
   onNavigate: (id: SectionId) => void;
+}
+
+function CoinAvatar({ symbol }: { symbol: string }) {
+  const [failed, setFailed] = useState(false);
+  const src = `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${symbol.toLowerCase()}.svg`;
+
+  return (
+    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 overflow-hidden">
+      {failed ? (
+        <span className="text-[15px] font-bold text-primary">{symbol.charAt(0)}</span>
+      ) : (
+        <Image
+          src={src}
+          alt={symbol}
+          className="h-6 w-6"
+          width={24}
+          height={24}
+          unoptimized
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
 }
 
 export default function NavigationSidebar({
@@ -57,9 +64,7 @@ export default function NavigationSidebar({
       <div className="border-b px-4 py-4" style={{ borderColor: "var(--color-border)" }}>
         <div className="rounded-xl border border-white/6 bg-bg/70 px-3.5 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-[15px] font-bold text-primary">
-              {symbol.replace("USDT", "").charAt(0)}
-            </div>
+            <CoinAvatar symbol={symbol.replace("USDT", "")} />
             <div className="min-w-0">
               <p className="text-[15px] font-semibold tracking-tight text-text">{symbol.replace("USDT", "")}</p>
               <p className="text-[11px] text-text-muted">{symbol.replace("USDT", "")} / USDT · {timeframe}</p>
@@ -76,7 +81,7 @@ export default function NavigationSidebar({
       </div>
 
       <div className="flex gap-2 overflow-x-auto px-3 py-3 lg:flex-col lg:overflow-visible lg:px-3.5">
-        {menuItems.map(({ id, label, hint, Icon }) => {
+        {dashboardSections.map(({ id, label, hint, Icon }) => {
           const active = id === activeId;
 
           return (

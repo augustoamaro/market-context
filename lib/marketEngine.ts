@@ -1,6 +1,7 @@
 import {
   ContextLayer,
   DecisionStep,
+  EngineConfidence,
   ExecutionPlan,
   GlobalBias,
   GlobalDecision,
@@ -177,6 +178,42 @@ function getRegime(anchorCtx: MarketContext): ContextLayer["regime"] {
   return {
     label: "Expansion",
     detail: `${anchorCtx.timeframe} is expanding but structure is still mixed`,
+    tone: "warn",
+  };
+}
+
+function getMarketMode(anchorCtx: MarketContext): ContextLayer["marketMode"] {
+  if (anchorCtx.marketState === "equilibrium" && anchorCtx.volumeRatioPct < 85) {
+    return {
+      mode: "COMPRESSION",
+      label: "Compression",
+      detail: `${anchorCtx.timeframe} favors patience until expansion returns`,
+      tone: "bad",
+    };
+  }
+
+  if (anchorCtx.marketState === "equilibrium") {
+    return {
+      mode: "RANGE",
+      label: "Range",
+      detail: `${anchorCtx.timeframe} favors mean-reversion until value breaks`,
+      tone: "warn",
+    };
+  }
+
+  if (anchorCtx.trend !== "sideways") {
+    return {
+      mode: "TREND",
+      label: "Trend",
+      detail: `${anchorCtx.timeframe} favors trend-following setups`,
+      tone: "ok",
+    };
+  }
+
+  return {
+    mode: "EXPANSION",
+    label: "Expansion",
+    detail: `${anchorCtx.timeframe} is expanding but still needs cleaner direction`,
     tone: "warn",
   };
 }
@@ -575,6 +612,45 @@ function getPositionSizeModifier(
   return 0;
 }
 
+function getEngineConfidence(
+  consensus: MultiTFConsensus,
+  context: ContextLayer,
+  readinessScore: number
+): EngineConfidence {
+  const alignment =
+    consensus.conflictLevel === "none"
+      ? Math.round((Math.abs(consensus.weightedScore) / 100) * 30)
+      : consensus.conflictLevel === "low"
+        ? 14
+        : 4;
+  const volume = getVolumeScore(context.volume.condition);
+  const range =
+    context.rangePosition.tone === "ok"
+      ? 15
+      : context.rangePosition.zone === "BREAKOUT" || context.rangePosition.zone === "BREAKDOWN"
+        ? 10
+        : 0;
+  const readiness = Math.round((readinessScore / 100) * 25);
+  const regimeClarity =
+    context.marketMode.tone === "ok"
+      ? 15
+      : context.marketMode.tone === "warn"
+        ? 8
+        : 4;
+
+  const score = clamp(alignment + volume + range + readiness + regimeClarity, 0, 100);
+
+  if (score >= 70) {
+    return { score, label: "High conviction", tone: "ok" };
+  }
+
+  if (score >= 45) {
+    return { score, label: "Moderate conviction", tone: "warn" };
+  }
+
+  return { score, label: "Low conviction", tone: "bad" };
+}
+
 function buildReasons(
   signal: GlobalDecision["signal"],
   bias: GlobalBias,
@@ -583,6 +659,7 @@ function buildReasons(
   readinessScore: number
 ): string[] {
   const reasons = [
+    `${context.marketMode.label} mode on ${context.anchorTimeframe.toUpperCase()}`,
     `${context.mtfConsensus.label} (${formatSigned(context.mtfConsensus.weightedScore)})`,
     `${context.regime.label} on ${context.anchorTimeframe.toUpperCase()}`,
     `${context.rangePosition.label} range position (${context.rangePosition.valuePct}%)`,
@@ -697,10 +774,51 @@ function buildExecutionPlan(
   bias: GlobalBias,
   anchorCtx: MarketContext,
   executionCtx: MarketContext,
+  marketMode: ContextLayer["marketMode"],
   archetype: SetupLayer["archetype"],
   positionSizeModifier: number
-): ExecutionPlan | null {
-  if (bias === "NEUTRAL") return null;
+): ExecutionPlan {
+  const anchorZone = getRangePosition(anchorCtx.pricePositionPct).zone;
+  const requiredTrigger =
+    marketMode.mode === "TREND"
+      ? `Need a ${executionCtx.timeframe} continuation close after pullback acceptance`
+      : marketMode.mode === "RANGE"
+        ? `Need a sweep of the range edge plus rejection and structure shift`
+        : marketMode.mode === "COMPRESSION"
+          ? `Need an expansion break with volume and structure confirmation`
+          : `Need follow-through after expansion with a clean structure break`;
+
+  const preferredDirection =
+    bias === "BULLISH"
+      ? "Long only"
+      : bias === "BEARISH"
+        ? "Short only"
+        : isHighZone(anchorZone) || anchorCtx.trend === "down" || executionCtx.trend === "down"
+          ? "Short if buy-side sweep occurs"
+          : isLowZone(anchorZone) || anchorCtx.trend === "up" || executionCtx.trend === "up"
+            ? "Long if sell-side sweep occurs"
+            : "Wait for a clearer directional edge";
+
+  if (bias === "NEUTRAL") {
+    return {
+      allowed: false,
+      emphasis: "secondary",
+      entryModel: marketMode.mode === "RANGE" ? "Reactive range fade only" : "Stand aside until confirmation",
+      trigger: `No trade yet. ${requiredTrigger}.`,
+      preferredDirection,
+      requiredTrigger,
+      suggestedEntry: null,
+      invalidation: null,
+      target1: null,
+      target2: null,
+      rr: null,
+      suggestedRiskPct: null,
+      notes: [
+        `${marketMode.label} mode active on ${anchorCtx.timeframe}.`,
+        "Execution remains blocked until direction becomes explicit.",
+      ],
+    };
+  }
 
   const rangeSpan = Math.max(executionCtx.rangeHigh - executionCtx.rangeLow, executionCtx.price * 0.003);
   const isReversal =
@@ -748,6 +866,8 @@ function buildExecutionPlan(
         signal === "READY"
           ? `Wait for a bullish ${executionCtx.timeframe} close that holds above local support`
           : `Only arm the trade after a bullish ${executionCtx.timeframe} reclaim`,
+      preferredDirection,
+      requiredTrigger,
       suggestedEntry,
       invalidation,
       target1,
@@ -791,6 +911,8 @@ function buildExecutionPlan(
       signal === "READY"
         ? `Wait for a bearish ${executionCtx.timeframe} close that holds below local resistance`
         : `Only arm the trade after a bearish ${executionCtx.timeframe} rejection`,
+    preferredDirection,
+    requiredTrigger,
     suggestedEntry,
     invalidation,
     target1,
@@ -814,6 +936,7 @@ export function computeGlobalDecision(
   const context: ContextLayer = {
     anchorTimeframe: anchorCtx.timeframe,
     activeTimeframe: executionCtx.timeframe,
+    marketMode: getMarketMode(anchorCtx),
     regime: getRegime(anchorCtx),
     rangePosition: getRangePosition(anchorCtx.pricePositionPct),
     mtfConsensus: getConsensusBlock(consensus),
@@ -853,6 +976,7 @@ export function computeGlobalDecision(
 
   const readinessScore = clamp(sum(Object.values(readinessBreakdown)), 0, 100);
   const readinessStage = getReadinessStage(readinessScore);
+  const engineConfidence = getEngineConfidence(consensus, context, readinessScore);
 
   let signal: GlobalDecision["signal"];
   if (bias === "NEUTRAL") {
@@ -874,6 +998,7 @@ export function computeGlobalDecision(
     bias,
     anchorCtx,
     executionCtx,
+    context.marketMode,
     setup.archetype,
     positionSizeModifier
   );
@@ -884,6 +1009,7 @@ export function computeGlobalDecision(
     label: getStateLabel(signal, readinessStage),
     executionTF: executionCtx.timeframe,
     positionSizeModifier,
+    engineConfidence,
     readinessScore,
     readinessStage,
     reasons,

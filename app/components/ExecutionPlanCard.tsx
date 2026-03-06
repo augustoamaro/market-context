@@ -1,11 +1,13 @@
-import { Crosshair, ShieldAlert, Target, TrendingUp, ShieldQuestion } from "lucide-react";
+import { Compass, Crosshair, ShieldAlert, Target, TrendingUp } from "lucide-react";
 import { GlobalDecision } from "@/types/market";
 import { formatPriceShort } from "@/lib/format";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   globalDecision: GlobalDecision | null;
   loading: boolean;
+  error?: string | null;
 }
 
 function Metric({
@@ -23,32 +25,46 @@ function Metric({
   );
 }
 
-export default function ExecutionPlanCard({ globalDecision, loading }: Props) {
-  if (loading) return <CardSkeleton rows={4} height="h-56" />;
-  if (!globalDecision) return null;
+function GuidanceBlock({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">{label}</p>
+      <p className="mt-2 text-[16px] font-semibold tracking-tight text-text">{value}</p>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-text-muted">{detail}</p>
+    </div>
+  );
+}
 
-  const plan = globalDecision.execution;
-  if (!plan) {
+export default function ExecutionPlanCard({ globalDecision, loading, error }: Props) {
+  if (loading) return <CardSkeleton rows={4} height="h-56" />;
+  if (error) {
     return (
-      <div className="bento-card rounded-2xl p-6 sm:p-8">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
-            Execution
-          </h2>
-        </div>
-        <div className="mt-8 mb-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-14 text-center">
-          <ShieldQuestion className="mb-4 size-8 text-text-muted/30" />
-          <p className="text-[13px] font-medium text-text-muted">
-            Execution Pending
-          </p>
-          <p className="mt-2 text-[12px] leading-relaxed text-text-muted/50 max-w-[280px]">
-            Execution stays secondary until the engine sees a clear directional bias.
-          </p>
-        </div>
-      </div>
+      <SectionStatusCard
+        title="Execution"
+        tone="error"
+        message={`Unable to build the execution plan because market context failed to load. ${error}`}
+      />
+    );
+  }
+  if (!globalDecision) {
+    return (
+      <SectionStatusCard
+        title="Execution"
+        tone="empty"
+        message="Execution guidance is not available yet because the engine has not produced a valid decision."
+      />
     );
   }
 
+  const plan = globalDecision.execution;
   const accent =
     globalDecision.bias === "BULLISH"
       ? "border-success/20 bg-success/10"
@@ -74,11 +90,29 @@ export default function ExecutionPlanCard({ globalDecision, loading }: Props) {
         </div>
 
         <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${accent}`}>
-          {plan.allowed ? "Execution enabled" : "Secondary plan"}
+          {plan.allowed ? "Allowed: Yes" : "Allowed: No"}
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+      <div className="mt-6 grid gap-3 xl:grid-cols-3">
+        <GuidanceBlock
+          label="Preferred Direction"
+          value={plan.preferredDirection}
+          detail="Directional preference from the engine, even if execution is blocked."
+        />
+        <GuidanceBlock
+          label="Required Trigger"
+          value={plan.allowed ? "Present or near" : "Still missing"}
+          detail={plan.requiredTrigger}
+        />
+        <GuidanceBlock
+          label="Execution State"
+          value={plan.allowed ? "Execution enabled" : "Stand by"}
+          detail={plan.trigger}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <div className={`rounded-2xl border p-5 ${plan.emphasis === "primary" ? accent : "border-white/8 bg-black/20"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -112,6 +146,16 @@ export default function ExecutionPlanCard({ globalDecision, loading }: Props) {
 
         <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
           <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Compass className="size-4 text-text-muted/70" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Preferred Direction</p>
+                <p className="mt-1 text-[18px] font-semibold tracking-tight text-text">
+                  {plan.preferredDirection}
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3">
               <Crosshair className="size-4 text-text-muted/70" />
               <div>

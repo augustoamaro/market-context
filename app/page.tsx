@@ -8,11 +8,17 @@ import { contextToMultiTFRow } from "@/lib/topSetup";
 import Header from "./components/Header";
 import CurrentSignalCard from "./components/CurrentSignalCard";
 import CandleChart from "./components/CandleChart";
-import NavigationSidebar, { type SectionId } from "./components/NavigationSidebar";
+import NavigationSidebar from "./components/NavigationSidebar";
 import WatchlistSidebar from "./components/Sidebar";
 import MarketContextCard from "./components/MarketContextCard";
 import SetupReadinessCard from "./components/SetupReadinessCard";
 import ExecutionPlanCard from "./components/ExecutionPlanCard";
+import {
+  getVisibleSectionIds,
+  isSectionId,
+  type ContentSectionId,
+  type SectionId,
+} from "./components/dashboardSections";
 
 const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 const REFRESH_INTERVAL = 60_000;
@@ -27,7 +33,11 @@ async function fetchContext(symbol: string, timeframe: string): Promise<MarketCo
 }
 
 export default function DashboardPage() {
-  const [section, setSection] = useState<SectionId>("overview");
+  const [section, setSection] = useState<SectionId>(() => {
+    if (typeof window === "undefined") return "overview";
+    const hash = window.location.hash.replace("#", "");
+    return isSectionId(hash) ? hash : "overview";
+  });
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [timeframe, setTimeframe] = useState("4h");
   const [loading, setLoading] = useState(true);
@@ -37,6 +47,7 @@ export default function DashboardPage() {
   const [allRows, setAllRows] = useState<MultiTFRow[]>([]);
   const [globalDecision, setGlobalDecision] = useState<GlobalDecision | null>(null);
 
+  const mainRef = useRef<HTMLElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // load depends only on symbol — timeframe switching is instant from cache
@@ -95,6 +106,34 @@ export default function DashboardPage() {
     setActiveCtx(match ?? allContexts[0]);
   }, [timeframe, allContexts]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const syncFromHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      setSection(isSectionId(hash) ? hash : "overview");
+    };
+
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const { pathname, search } = window.location;
+    const nextUrl =
+      section === "overview"
+        ? `${pathname}${search}`
+        : `${pathname}${search}#${section}`;
+
+    window.history.replaceState(null, "", nextUrl);
+  }, [section]);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [section]);
+
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -107,6 +146,87 @@ export default function DashboardPage() {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
+
+  const executionCtx = allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null;
+  const visibleSectionIds = getVisibleSectionIds(section);
+
+  function renderSection(sectionId: ContentSectionId) {
+    if (sectionId === "current-state") {
+      return (
+        <CurrentSignalCard
+          globalDecision={globalDecision}
+          executionCtx={executionCtx}
+          loading={loading}
+          error={error}
+        />
+      );
+    }
+
+    if (sectionId === "market-context") {
+      return (
+        <MarketContextCard
+          globalDecision={globalDecision}
+          rows={allRows}
+          activeCtx={activeCtx}
+          loading={loading}
+          error={error}
+        />
+      );
+    }
+
+    if (sectionId === "setup-readiness") {
+      return (
+        <SetupReadinessCard
+          globalDecision={globalDecision}
+          loading={loading}
+          error={error}
+        />
+      );
+    }
+
+    if (sectionId === "execution") {
+      return (
+        <ExecutionPlanCard
+          globalDecision={globalDecision}
+          loading={loading}
+          error={error}
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
+                Chart
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
+                The chart confirms the engine verdict instead of competing with it.
+              </p>
+            </div>
+
+            {activeCtx && (
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                  View {timeframe}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                  Price {activeCtx.price}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
+                  Range {Math.round(activeCtx.pricePositionPct)}%
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <CandleChart symbol={symbol} timeframe={timeframe} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg lg:h-screen lg:flex-row lg:overflow-hidden">
@@ -121,89 +241,19 @@ export default function DashboardPage() {
           onTimeframeChange={setTimeframe}
         />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="mx-auto max-w-[1280px]">
             <motion.div
-              key={section}
               variants={containerVariants}
               initial="hidden"
               animate="show"
               className="space-y-6"
             >
-              {(section === "overview" || section === "current-state") && (
-                <motion.div variants={itemVariants}>
-                  <CurrentSignalCard
-                    globalDecision={globalDecision}
-                    executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
-                    loading={loading}
-                  />
+              {visibleSectionIds.map((sectionId) => (
+                <motion.div key={sectionId} variants={itemVariants}>
+                  {renderSection(sectionId)}
                 </motion.div>
-              )}
-
-              {(section === "overview" || section === "market-context") && (
-                <motion.div variants={itemVariants}>
-                  <MarketContextCard
-                    globalDecision={globalDecision}
-                    rows={allRows}
-                    activeCtx={activeCtx}
-                    loading={loading}
-                    error={error}
-                  />
-                </motion.div>
-              )}
-
-              {(section === "overview" || section === "setup-readiness") && (
-                <motion.div variants={itemVariants}>
-                  <SetupReadinessCard
-                    globalDecision={globalDecision}
-                    loading={loading}
-                  />
-                </motion.div>
-              )}
-
-              {(section === "overview" || section === "execution") && (
-                <motion.div variants={itemVariants}>
-                  <ExecutionPlanCard
-                    globalDecision={globalDecision}
-                    loading={loading}
-                  />
-                </motion.div>
-              )}
-
-              {(section === "overview" || section === "chart") && (
-                <motion.div variants={itemVariants}>
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-text-muted">
-                            Chart
-                          </p>
-                          <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
-                            The chart confirms the engine verdict instead of competing with it.
-                          </p>
-                        </div>
-
-                        {activeCtx && (
-                          <div className="flex flex-wrap gap-2">
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                              View {timeframe}
-                            </span>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                              Price {activeCtx.price}
-                            </span>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-text-muted">
-                              Range {Math.round(activeCtx.pricePositionPct)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <CandleChart symbol={symbol} timeframe={timeframe} />
-                  </div>
-                </motion.div>
-              )}
+              ))}
             </motion.div>
           </div>
         </main>

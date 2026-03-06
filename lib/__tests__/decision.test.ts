@@ -258,6 +258,12 @@ describe("computeGlobalDecision()", () => {
     expect(result.signal).toBe("READY");
     expect(result.bias).toBe("BULLISH");
     expect(result.readinessScore).toBeGreaterThanOrEqual(76);
+    expect(result.engineConfidence.score).toBeGreaterThanOrEqual(70);
+    expect(result.engineConfidence.label).toBe("High conviction");
+    expect(result.context.marketMode.mode).toBe("TREND");
+    expect(result.execution.allowed).toBe(true);
+    expect(result.execution.preferredDirection).toBe("Long only");
+    expect(result.execution.requiredTrigger).toContain("continuation close");
     expect(result.steps).toHaveLength(6);
     expect(result.steps.map((step) => step.id)).toEqual([
       "bias",
@@ -287,7 +293,9 @@ describe("computeGlobalDecision()", () => {
     expect(result.signal).toBe("LOOK_FOR_LONGS");
     expect(result.bias).toBe("BULLISH");
     expect(result.readinessStage).toBe("SETUP_DEVELOPING");
-    expect(result.execution?.allowed).toBe(false);
+    expect(result.execution.allowed).toBe(false);
+    expect(result.execution.preferredDirection).toBe("Long only");
+    expect(result.execution.requiredTrigger).toContain("continuation close");
   });
 
   it("keeps a bullish setup ready but exposes warnings when the execution context is stretched", () => {
@@ -333,7 +341,9 @@ describe("computeGlobalDecision()", () => {
     expect(result.signal).toBe("NO_TRADE");
     expect(result.bias).toBe("NEUTRAL");
     expect(result.steps.find((step) => step.id === "bias")?.status).toBe("bad");
-    expect(result.execution).toBeNull();
+    expect(result.execution.allowed).toBe(false);
+    expect(result.execution.preferredDirection).toBe("Long if sell-side sweep occurs");
+    expect(result.execution.trigger).toContain("No trade yet.");
   });
 
   it("keeps high-conflict equilibrium extremes as NO_TRADE until a directional edge appears", () => {
@@ -358,7 +368,9 @@ describe("computeGlobalDecision()", () => {
     expect(result.signal).toBe("NO_TRADE");
     expect(result.bias).toBe("NEUTRAL");
     expect(result.context.rangePosition.label).toBe("Low");
-    expect(result.execution).toBeNull();
+    expect(result.context.marketMode.mode).toBe("RANGE");
+    expect(result.execution.allowed).toBe(false);
+    expect(result.execution.preferredDirection).toBe("Long if sell-side sweep occurs");
   });
 
   it("returns NO_TRADE when consensus is too weak to create bias", () => {
@@ -401,5 +413,30 @@ describe("computeGlobalDecision()", () => {
     expect(result.steps.find((step) => step.id === "range")?.status).toBe("bad");
     expect(result.context.regime.label).toBe("Equilibrium");
     expect(result.context.rangePosition.label).toBe("Mid");
+    expect(result.context.marketMode.mode).toBe("RANGE");
+  });
+
+  it("detects compression mode and lowers conviction when equilibrium has weak volume", () => {
+    const rows = makeRows({
+      "15m": "bullish",
+      "1h": "bullish",
+      "4h": "bullish",
+      "1d": "bullish",
+      "1w": "bullish",
+    });
+    const executionCtx = makeExecutionCtx({
+      volumeRatioPct: 70,
+    });
+    const anchorCtx = makeAnchorCtx({
+      marketState: "equilibrium",
+      volumeRatioPct: 70,
+      stateReason: "Balanced auction with thin participation",
+    });
+
+    const result = computeGlobalDecision(rows, executionCtx, anchorCtx, computeMultiTFConsensus(rows));
+
+    expect(result.context.marketMode.mode).toBe("COMPRESSION");
+    expect(result.context.marketMode.label).toBe("Compression");
+    expect(result.engineConfidence.score).toBeLessThan(85);
   });
 });

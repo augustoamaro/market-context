@@ -1,7 +1,17 @@
 import type { ReactNode } from "react";
-import { Activity, Compass, Layers3, Volume2 } from "lucide-react";
+import {
+  Activity,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Compass,
+  Layers3,
+  MoveHorizontal,
+  TrendingUp,
+  Volume2,
+} from "lucide-react";
 import { GlobalDecision, MarketContext, MultiTFRow, StepStatus } from "@/types/market";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   globalDecision: GlobalDecision | null;
@@ -35,8 +45,8 @@ function ContextCell({
   icon,
 }: {
   title: string;
-  value: string;
-  detail: string;
+  value: ReactNode;
+  detail: ReactNode;
   tone: StepStatus;
   icon: ReactNode;
 }) {
@@ -54,6 +64,37 @@ function ContextCell({
   );
 }
 
+const timeframeGroups = [
+  {
+    id: "HTF",
+    title: "HTF",
+    detail: "1W and 1D define directional bias",
+    frames: ["1w", "1d"],
+    icon: <Compass className="size-4" />,
+  },
+  {
+    id: "MTF",
+    title: "MTF",
+    detail: "4H anchors structure and regime",
+    frames: ["4h"],
+    icon: <Layers3 className="size-4" />,
+  },
+  {
+    id: "LTF",
+    title: "LTF",
+    detail: "1H and 15M refine timing",
+    frames: ["1h", "15m"],
+    icon: <Activity className="size-4" />,
+  },
+] as const;
+
+function getModeIcon(mode: GlobalDecision["context"]["marketMode"]["mode"]) {
+  if (mode === "TREND") return <TrendingUp className="size-4" />;
+  if (mode === "RANGE") return <ArrowRightLeft className="size-4" />;
+  if (mode === "COMPRESSION") return <MoveHorizontal className="size-4" />;
+  return <ArrowUpRight className="size-4" />;
+}
+
 export default function MarketContextCard({
   globalDecision,
   rows,
@@ -63,9 +104,23 @@ export default function MarketContextCard({
 }: Props) {
   if (loading) return <CardSkeleton rows={4} height="h-64" />;
   if (error) {
-    return <div className="bento-card rounded-2xl p-6 text-[13px] text-danger/80">{error}</div>;
+    return (
+      <SectionStatusCard
+        title="Market Context"
+        tone="error"
+        message={`Unable to render regime, range, and consensus data because context loading failed. ${error}`}
+      />
+    );
   }
-  if (!globalDecision) return null;
+  if (!globalDecision) {
+    return (
+      <SectionStatusCard
+        title="Market Context"
+        tone="empty"
+        message="Market-context diagnostics are not available yet for this symbol."
+      />
+    );
+  }
 
   const { context } = globalDecision;
 
@@ -85,7 +140,19 @@ export default function MarketContextCard({
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <ContextCell
+          title="Market Mode"
+          value={
+            <span className="flex items-center gap-2">
+              <span className="text-text-muted/70">{getModeIcon(context.marketMode.mode)}</span>
+              <span>{context.marketMode.label}</span>
+            </span>
+          }
+          detail={context.marketMode.detail}
+          tone={context.marketMode.tone}
+          icon={getModeIcon(context.marketMode.mode)}
+        />
         <ContextCell
           title="Regime"
           value={context.regime.label}
@@ -121,20 +188,41 @@ export default function MarketContextCard({
           <div>
             <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Timeframe Matrix</p>
             <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
-              Higher timeframes define bias; lower timeframes refine timing.
+              HTF defines bias, MTF anchors regime, and LTF handles timing.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {rows.map((row) => (
-              <span
-                key={row.timeframe}
-                className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${alignmentStyles[row.alignment]}`}
-              >
-                <span className="opacity-60">{row.timeframe}</span>
-                <span className="font-mono uppercase">{row.alignment}</span>
-              </span>
-            ))}
-          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {timeframeGroups.map((group) => {
+            const groupRows = rows.filter((row) =>
+              group.frames.some((frame) => frame === row.timeframe)
+            );
+
+            return (
+              <div key={group.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">{group.title}</p>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-text-muted">{group.detail}</p>
+                  </div>
+                  <div className="text-text-muted/60">{group.icon}</div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {groupRows.map((row) => (
+                    <span
+                      key={row.timeframe}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${alignmentStyles[row.alignment]}`}
+                    >
+                      <span className="opacity-60">{row.timeframe.toUpperCase()}</span>
+                      <span className="font-mono uppercase">{row.alignment}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {activeCtx && (

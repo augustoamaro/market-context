@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { CheckCircle2, GitBranch, Radar, ScanSearch, Sparkles, Waves } from "lucide-react";
 import { GlobalDecision, StepStatus } from "@/types/market";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   globalDecision: GlobalDecision | null;
   loading: boolean;
+  error?: string | null;
 }
 
 const toneStyles: Record<StepStatus, string> = {
@@ -54,9 +56,26 @@ function scoreLabel(score: number): string {
   return "Execution-ready";
 }
 
-export default function SetupReadinessCard({ globalDecision, loading }: Props) {
+export default function SetupReadinessCard({ globalDecision, loading, error }: Props) {
   if (loading) return <CardSkeleton rows={4} height="h-64" />;
-  if (!globalDecision) return null;
+  if (error) {
+    return (
+      <SectionStatusCard
+        title="Setup Readiness"
+        tone="error"
+        message={`Unable to build setup-readiness diagnostics because market context failed to load. ${error}`}
+      />
+    );
+  }
+  if (!globalDecision) {
+    return (
+      <SectionStatusCard
+        title="Setup Readiness"
+        tone="empty"
+        message="Readiness diagnostics are not available yet for this market."
+      />
+    );
+  }
 
   const { setup, readinessBreakdown, readinessScore } = globalDecision;
 

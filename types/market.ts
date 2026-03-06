@@ -29,6 +29,7 @@ export type RangePositionLabel =
   | "EXTREME_HIGH"
   | "BREAKOUT";
 export type VolumeCondition = "STRONG" | "HEALTHY" | "LIGHT" | "WEAK";
+export type MarketMode = "TREND" | "RANGE" | "EXPANSION" | "COMPRESSION";
 export type SetupStage =
   | "NO_SETUP"
   | "CONTEXT_FORMING"
@@ -118,6 +119,9 @@ export interface EngineStatusBlock {
 export interface ContextLayer {
   anchorTimeframe: string;
   activeTimeframe: string;
+  marketMode: EngineStatusBlock & {
+    mode: MarketMode;
+  };
   regime: EngineStatusBlock;
   rangePosition: EngineStatusBlock & {
     zone: RangePositionLabel;
@@ -160,6 +164,8 @@ export interface ExecutionPlan {
   emphasis: "secondary" | "primary";
   entryModel: string;
   trigger: string;
+  preferredDirection: string;
+  requiredTrigger: string;
   suggestedEntry: number | null;
   invalidation: number | null;
   target1: number | null;
@@ -187,12 +193,19 @@ export interface Decision {
   consensus: MultiTFConsensus;
 }
 
+export interface EngineConfidence {
+  score: number;
+  label: string;
+  tone: StepStatus;
+}
+
 export interface GlobalDecision {
   signal: GlobalSignal;
   bias: GlobalBias;
   label: string;
   executionTF: string;
   positionSizeModifier: number;
+  engineConfidence: EngineConfidence;
   readinessScore: number;
   readinessStage: SetupStage;
   reasons: string[];
@@ -202,7 +215,7 @@ export interface GlobalDecision {
   context: ContextLayer;
   setup: SetupLayer;
   readinessBreakdown: ReadinessBreakdown;
-  execution: ExecutionPlan | null;
+  execution: ExecutionPlan;
 }
 
 export interface ContextSnapshot {

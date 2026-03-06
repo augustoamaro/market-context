@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, BookmarkPlus, Check, ChevronRight, Radio } from "lucide-react";
+import { AlertTriangle, BookmarkPlus, Check, ChevronRight, Gauge, Radio } from "lucide-react";
 import { GlobalDecision, MarketContext } from "@/types/market";
 import { saveSnapshot, updateSnapshot } from "@/lib/journal";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   globalDecision: GlobalDecision | null;
   executionCtx: MarketContext | null;
   loading: boolean;
+  error?: string | null;
 }
 
 type TradeDecision = "long" | "short" | "no_trade";
@@ -55,6 +57,12 @@ const readinessLabel = {
   EXECUTION_READY: "Execution-ready",
 } as const;
 
+const confidenceTone = {
+  ok: "text-success",
+  warn: "text-warn",
+  bad: "text-text-muted",
+} as const;
+
 function labelClass(signal: GlobalDecision["signal"], bias: GlobalDecision["bias"]): string {
   if (signal === "NO_TRADE") return "text-text-muted";
   if (signal === "WAIT") return "text-warn";
@@ -63,14 +71,31 @@ function labelClass(signal: GlobalDecision["signal"], bias: GlobalDecision["bias
   return "text-success";
 }
 
-export default function CurrentSignalCard({ globalDecision, executionCtx, loading }: Props) {
+export default function CurrentSignalCard({ globalDecision, executionCtx, loading, error }: Props) {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [showDecision, setShowDecision] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [duplicate, setDuplicate] = useState(false);
 
   if (loading) return <CardSkeleton rows={5} height="h-72" />;
-  if (!globalDecision) return null;
+  if (error) {
+    return (
+      <SectionStatusCard
+        title="Current State"
+        tone="error"
+        message={`Unable to render the global verdict because market context failed to load. ${error}`}
+      />
+    );
+  }
+  if (!globalDecision) {
+    return (
+      <SectionStatusCard
+        title="Current State"
+        tone="empty"
+        message="No decision is available yet for this symbol and timeframe set."
+      />
+    );
+  }
 
   const decision = globalDecision;
 
@@ -145,6 +170,9 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
               Bias: {biasText}
             </span>
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-text-muted">
+              Preferred: {decision.execution.preferredDirection}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-text-muted">
               {decision.executionTF} execution
             </span>
           </div>
@@ -167,7 +195,31 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Engine Confidence</p>
+                  <Gauge className={`size-4 ${confidenceTone[decision.engineConfidence.tone]}`} />
+                </div>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-text">
+                  {decision.engineConfidence.score}
+                  <span className="text-sm text-text-muted">%</span>
+                </p>
+                <p className={`mt-1 text-[11px] ${confidenceTone[decision.engineConfidence.tone]}`}>
+                  {decision.engineConfidence.label}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Market Mode</p>
+                <p className="mt-2 text-[18px] font-semibold tracking-tight text-text">
+                  {decision.context.marketMode.label}
+                </p>
+                <p className="mt-1 text-[11px] text-text-muted">
+                  {decision.context.marketMode.detail}
+                </p>
+              </div>
+
               <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-3">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Readiness</p>
                 <p className="mt-2 text-2xl font-semibold tracking-tight text-text">
@@ -222,7 +274,7 @@ export default function CurrentSignalCard({ globalDecision, executionCtx, loadin
           </div>
 
           <div className="rounded-2xl border border-white/8 bg-black/20 p-5">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Why</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Engine Reasoning</p>
             <ul className="mt-4 space-y-3">
               {decision.reasons.map((reason) => (
                 <li key={reason} className="flex items-start gap-3 text-[13px] leading-relaxed text-text-muted">
