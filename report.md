@@ -18,6 +18,7 @@ Resumo direto:
 - O journal deixou de gravar `confidenceScore` errado.
 - O scanner da sidebar agora usa o motor global MTF.
 - O `priceChangePct` passou a usar 24h real da Binance quando disponivel.
+- O layout agora esta com watchlist na direita e sidebar de navegacao na esquerda.
 - Ainda faltam as partes que realmente transformam contexto em edge medido: analytics de expectancy, storage server-side e ranking por edge historico.
 
 ## Backlog Por Dificuldade
@@ -39,6 +40,10 @@ Resumo direto:
 - [x] Limpar warning real de props/imports nao usados
   - Arquivos: `app/components/Header.tsx`, `app/page.tsx`
   - Resultado: lint limpo
+
+- [x] Reorganizar layout para watchlist na direita e navegacao na esquerda
+  - Arquivos: `app/components/NavigationSidebar.tsx`, `app/components/Sidebar.tsx`, `app/page.tsx`
+  - Resultado: desktop em tres colunas; mobile empilhado sem perder acesso a simbolos
 
 ### Medio
 

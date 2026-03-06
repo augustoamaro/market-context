@@ -237,26 +237,32 @@ export default function Sidebar({ currentSymbol, onSymbolChange }: SidebarProps)
   return (
     <>
       <aside
-        className="w-52 border-r border-[#ffffff14] bg-surface/50 flex flex-col h-screen overflow-hidden flex-shrink-0"
+        className="h-[420px] w-full border-t bg-surface/55 flex flex-col overflow-hidden lg:h-screen lg:w-72 lg:border-t-0 lg:border-l xl:w-64 lg:flex-shrink-0"
         style={{ borderColor: "var(--color-border)" }}
       >
-        {/* Logo */}
-        <div
-          className="px-4 py-3.5 border-b flex items-center justify-between flex-shrink-0"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="flex items-center space-x-2.5">
-            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center font-bold text-white text-xs tracking-tighter shadow-sm shadow-primary/20">
-              HS
+        {/* Watchlist header */}
+        <div className="border-b px-4 py-3.5" style={{ borderColor: "var(--color-border)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                Watchlist
+              </p>
+              <p className="mt-1 text-[12px] text-text-muted/75">
+                Seleção rápida de símbolos e scan global
+              </p>
             </div>
-            <span className="font-semibold text-sm tracking-tight text-text">HardStop</span>
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex items-center gap-1 text-text-muted hover:text-text transition-colors"
+              title="Add symbol (⌘K)"
+            >
+              <Plus className="size-3.5" />
+            </button>
           </div>
         </div>
-
-        {/* Watchlist header */}
-        <div className="px-4 pt-3.5 pb-2 flex items-center justify-between flex-shrink-0">
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between flex-shrink-0">
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-widest">
-            Watchlist
+            Favorites
           </span>
           <button
             onClick={() => setIsSearchOpen(true)}

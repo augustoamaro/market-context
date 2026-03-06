@@ -12,7 +12,8 @@ import TrendMonitorCard from "./components/TrendMonitorCard";
 import DecisionLogicCard from "./components/DecisionLogicCard";
 import CurrentSignalCard from "./components/CurrentSignalCard";
 import CandleChart from "./components/CandleChart";
-import Sidebar from "./components/Sidebar";
+import NavigationSidebar from "./components/NavigationSidebar";
+import WatchlistSidebar from "./components/Sidebar";
 
 const ALL_TIMEFRAMES = ["15m", "1h", "4h", "1d", "1w"];
 const REFRESH_INTERVAL = 60_000;
@@ -110,10 +111,10 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-bg">
-      <Sidebar currentSymbol={symbol} onSymbolChange={setSymbol} />
+    <div className="flex min-h-screen w-full flex-col bg-bg lg:h-screen lg:flex-row lg:overflow-hidden">
+      <NavigationSidebar symbol={symbol} timeframe={timeframe} />
 
-      <div className="flex flex-1 flex-col overflow-hidden relative">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           symbol={symbol}
           timeframe={timeframe}
@@ -123,7 +124,7 @@ export default function DashboardPage() {
         />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-[1200px]">
+          <div id="overview" className="mx-auto max-w-[1200px]">
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -132,7 +133,7 @@ export default function DashboardPage() {
             >
               {/* Left column — 8/12 */}
               <div className="space-y-6 lg:col-span-8">
-                <motion.div variants={itemVariants}>
+                <motion.div id="trend-monitor" variants={itemVariants}>
                   <TrendMonitorCard
                     rows={allRows}
                     consensus={consensus}
@@ -141,27 +142,27 @@ export default function DashboardPage() {
                     activeTimeframe={timeframe}
                   />
                 </motion.div>
-                <motion.div variants={itemVariants}>
+                <motion.div id="regime" variants={itemVariants}>
                   <RegimeHeroCard ctx={activeCtx} loading={loading} error={error} />
                 </motion.div>
-                <motion.div variants={itemVariants}>
+                <motion.div id="range" variants={itemVariants}>
                   <RangePositionCard ctx={activeCtx} loading={loading} error={error} />
                 </motion.div>
-                <motion.div variants={itemVariants}>
+                <motion.div id="chart" variants={itemVariants}>
                   <CandleChart symbol={symbol} timeframe={timeframe} />
                 </motion.div>
               </div>
 
               {/* Right sidebar — 4/12, self-start so cards don't stretch */}
               <div className="space-y-6 lg:col-span-4 lg:self-start">
-                <motion.div variants={itemVariants}>
+                <motion.div id="current-signal" variants={itemVariants}>
                   <CurrentSignalCard
                     globalDecision={globalDecision}
                     executionCtx={allContexts.find((ctx) => ctx.timeframe === "1h") ?? allContexts[0] ?? null}
                     loading={loading}
                   />
                 </motion.div>
-                <motion.div variants={itemVariants}>
+                <motion.div id="decision-logic" variants={itemVariants}>
                   <DecisionLogicCard globalDecision={globalDecision} loading={loading} />
                 </motion.div>
               </div>
@@ -169,6 +170,8 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+
+      <WatchlistSidebar currentSymbol={symbol} onSymbolChange={setSymbol} />
     </div>
   );
 }
