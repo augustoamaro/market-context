@@ -2,6 +2,7 @@ import type { LucideProps } from "lucide-react";
 import { GlobalDecision, StepStatus } from "@/types/market";
 import CardSkeleton from "./Skeleton";
 import { Check, AlertTriangle, X } from "lucide-react";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   globalDecision: GlobalDecision | null;
@@ -22,7 +23,15 @@ const conflictLabels = {
 
 export default function DecisionLogicCard({ globalDecision, loading }: Props) {
   if (loading) return <CardSkeleton rows={4} height="h-64" />;
-  if (!globalDecision) return null;
+  if (!globalDecision) {
+    return (
+      <SectionStatusCard
+        title="Decision Logic"
+        tone="empty"
+        message="Decision logic is not available yet for this market."
+      />
+    );
+  }
 
   const sizePct = Math.round(globalDecision.positionSizeModifier * 100);
   const barTone =

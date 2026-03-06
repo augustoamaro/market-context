@@ -1,6 +1,7 @@
 import { MarketContext } from "@/types/market";
 import { formatPriceShort } from "@/lib/format";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   ctx: MarketContext | null;
@@ -27,11 +28,22 @@ function getZone(pct: number): Zone {
 
 export default function RangePositionCard({ ctx, loading, error }: Props) {
   if (loading) return <CardSkeleton rows={3} height="h-40" />;
-  if (error || !ctx) {
+  if (error) {
     return (
-      <div className="bento-card rounded-xl p-6 text-[13px] text-danger/80">
-        {error ?? "No data available"}
-      </div>
+      <SectionStatusCard
+        title="Range Strategy"
+        tone="error"
+        message={`Unable to render range-position diagnostics because context loading failed. ${error}`}
+      />
+    );
+  }
+  if (!ctx) {
+    return (
+      <SectionStatusCard
+        title="Range Strategy"
+        tone="empty"
+        message="Range-position diagnostics are not available yet for this timeframe."
+      />
     );
   }
 

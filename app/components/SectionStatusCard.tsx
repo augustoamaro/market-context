@@ -4,6 +4,8 @@ interface Props {
   title: string;
   message: string;
   tone?: "error" | "empty" | "info";
+  embedded?: boolean;
+  className?: string;
 }
 
 const toneStyles = {
@@ -28,11 +30,14 @@ export default function SectionStatusCard({
   title,
   message,
   tone = "empty",
+  embedded = false,
+  className,
 }: Props) {
   const { shell, text, Icon } = toneStyles[tone];
+  const shellClass = embedded ? "rounded-2xl p-6 sm:p-8" : "bento-card rounded-2xl p-6 sm:p-8";
 
   return (
-    <div className={`bento-card rounded-2xl p-6 sm:p-8 ${shell}`}>
+    <div className={`${shellClass} ${shell} ${className ?? ""}`}>
       <div className="flex items-start gap-4">
         <div className={`rounded-xl border border-white/10 bg-black/20 p-3 ${text}`}>
           <Icon className="size-5" />

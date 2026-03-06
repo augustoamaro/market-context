@@ -1,6 +1,7 @@
 import { MarketContext } from "@/types/market";
 import CardSkeleton from "./Skeleton";
 import { Activity } from "lucide-react";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   ctx: MarketContext | null;
@@ -80,11 +81,22 @@ function RsiBar({ rsi }: { rsi: number }) {
 
 export default function RegimeHeroCard({ ctx, loading, error }: Props) {
   if (loading) return <CardSkeleton rows={2} height="h-32" />;
-  if (error || !ctx) {
+  if (error) {
     return (
-      <div className="bento-card rounded-xl p-6 text-[13px] text-danger/80">
-        {error ?? "No data available"}
-      </div>
+      <SectionStatusCard
+        title="Market Regime"
+        tone="error"
+        message={`Unable to render market-regime diagnostics because context loading failed. ${error}`}
+      />
+    );
+  }
+  if (!ctx) {
+    return (
+      <SectionStatusCard
+        title="Market Regime"
+        tone="empty"
+        message="Market-regime diagnostics are not available yet for this timeframe."
+      />
     );
   }
 

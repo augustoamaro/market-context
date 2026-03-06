@@ -1,6 +1,7 @@
 import { Alignment, MultiTFConsensus, MultiTFRow } from "@/types/market";
 import { formatVolumeX } from "@/lib/format";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Props {
   rows: MultiTFRow[];
@@ -61,9 +62,20 @@ export default function TrendMonitorCard({
   if (loading) return <CardSkeleton rows={5} height="h-64" />;
   if (error) {
     return (
-      <div className="bento-card rounded-xl p-6 text-[13px] text-danger/80">
-        {error}
-      </div>
+      <SectionStatusCard
+        title="Trend Monitor"
+        tone="error"
+        message={`Unable to render multi-timeframe trend diagnostics because context loading failed. ${error}`}
+      />
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <SectionStatusCard
+        title="Trend Monitor"
+        tone="empty"
+        message="Trend-monitor diagnostics are not available yet for this symbol."
+      />
     );
   }
 

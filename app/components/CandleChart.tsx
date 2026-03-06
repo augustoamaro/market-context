@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Bar {
   time: number;
@@ -24,19 +25,42 @@ function ChartInner({ symbol, timeframe }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     setBars(null);
     setError(null);
-    fetch(`/api/candles?symbol=${symbol}&timeframe=${timeframe}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setBars(data);
-      })
-      .catch((e: Error) => setError(e.message));
+
+    async function loadCandles() {
+      try {
+        const response = await fetch(`/api/candles?symbol=${symbol}&timeframe=${timeframe}`, {
+          signal: controller.signal,
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.error ?? `HTTP ${response.status}`);
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        if (!controller.signal.aborted) {
+          setBars(Array.isArray(data) ? data : []);
+        }
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "Failed to load candle history");
+      }
+    }
+
+    loadCandles();
+
+    return () => controller.abort();
   }, [symbol, timeframe]);
 
   useEffect(() => {
-    if (!bars || !containerRef.current) return;
+    if (!bars || bars.length === 0 || !containerRef.current) return;
 
     // Closed-over variables — accessible by cleanup even after async import
     let active = true;
@@ -96,7 +120,31 @@ function ChartInner({ symbol, timeframe }: Props) {
   }, [bars]);
 
   if (error) {
-    return <p className="text-[13px] text-danger/80 p-4">{error}</p>;
+    return (
+      <div style={{ minHeight: CHART_HEIGHT }} className="flex items-center">
+        <SectionStatusCard
+          embedded
+          className="w-full"
+          title="Price Chart"
+          tone="error"
+          message={`Unable to load candle history for ${symbol} on ${timeframe}. ${error}`}
+        />
+      </div>
+    );
+  }
+
+  if (bars && bars.length === 0) {
+    return (
+      <div style={{ minHeight: CHART_HEIGHT }} className="flex items-center">
+        <SectionStatusCard
+          embedded
+          className="w-full"
+          title="Price Chart"
+          tone="empty"
+          message={`No candle history is available yet for ${symbol} on ${timeframe}.`}
+        />
+      </div>
+    );
   }
 
   if (!bars) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
 import CardSkeleton from "./Skeleton";
+import SectionStatusCard from "./SectionStatusCard";
 
 interface Balance {
   asset: string;
@@ -25,37 +26,72 @@ export default function AccountCard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/account")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
+    const controller = new AbortController();
+
+    async function loadAccount() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/account", { signal: controller.signal });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.error ?? `HTTP ${response.status}`);
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid account response");
+        }
+
         // Sort by ASSET_ORDER
         const sorted = [...data].sort((a: Balance, b: Balance) => {
           const ia = ASSET_ORDER.indexOf(a.asset);
           const ib = ASSET_ORDER.indexOf(b.asset);
           return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
         });
-        setBalances(sorted);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+
+        if (!controller.signal.aborted) {
+          setBalances(sorted);
+        }
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setError(e instanceof Error ? e.message : "Failed to load account balances");
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadAccount();
+
+    return () => controller.abort();
   }, []);
 
   if (loading) return <CardSkeleton rows={3} height="h-40" />;
 
   if (error) {
     return (
-      <div className="bento-card rounded-xl p-6 text-[13px] text-danger/80">
-        {error}
-      </div>
+      <SectionStatusCard
+        title="Account"
+        tone="error"
+        message={`Unable to load account balances. ${error}`}
+      />
     );
   }
 
   if (!balances || balances.length === 0) {
     return (
-      <div className="bento-card rounded-xl p-6 text-[13px] text-text-muted">
-        No balances found.
-      </div>
+      <SectionStatusCard
+        title="Account"
+        tone="empty"
+        message="No balances were returned by the account endpoint."
+      />
     );
   }
 
